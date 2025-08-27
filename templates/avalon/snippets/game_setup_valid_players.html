@@ -1,0 +1,4 @@
+<option class="d-none" value="" selected disabled>Choose a player...</option>
+{% for player in players|sort(attribute='name') %}
+    <option class="text-dark" value="{{ player.player_id }}">{{ player.name }}</option>
+{% endfor %}

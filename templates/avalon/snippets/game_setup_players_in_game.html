@@ -1,0 +1,3 @@
+{% for player in players|sort(attribute='name') %}
+<button class="btn btn-md me-2 mb-2 btn-outline-secondary game-setup-player" hx-get="/avalon/game/{{ game_id }}/remove_player/{{ player.player_id }}" hx-target="#players-in-game" hx-trigger="click">{{ player.name }}</button>
+{% endfor %}

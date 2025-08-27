@@ -1,0 +1,17 @@
+{% for game in games %}
+<a href="/avalon/game/{{ game.game_id }}" style="text-decoration:none;">
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Started: <strong>{{ game.start_time }}</strong></span>
+            <span class="badge bg-secondary">{{ game.player_count }} Players</span>
+        </div>
+        <div class="card-body py-2">
+            <div class="d-flex flex-wrap align-items-center"
+                hx-get="/avalon/landing/game/{{ game.game_id }}/players"
+                 hx-trigger="load"
+                 hx-swap="innerHTML"
+            ></div>
+        </div>
+    </div>
+</a>
+{% endfor %}
