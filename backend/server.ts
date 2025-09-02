@@ -7,8 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-app.listen(5000, () => console.log("Server running on port 5000"));
-
 // Middleware for logging requests
 app.use((req, res, next) => {
   const now = new Date().toISOString(); // timestamp
@@ -23,3 +21,5 @@ app.use((req, res, next) => {
 
 app.use("/api/players", playersRoutes);
 app.use("/api/avalon", avalonRoutes);
+
+app.listen(5000, () => console.log("Server running on port 5000"));
