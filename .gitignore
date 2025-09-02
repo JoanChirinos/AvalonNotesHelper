@@ -2,6 +2,60 @@
 data/*
 .idea*
 
+# Node.js / JavaScript / TypeScript / React
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+dist/
+build/
+.next/
+.vercel/
+.parcel-cache/
+.eslintcache
+coverage/
+*.tsbuildinfo
+*.log
+*.env*
+.env*
+frontend/build/
+frontend/node_modules/
+backend/node_modules/
+backend/dist/
+backend/build/
+backend/.env*
+frontend/.env*
+
+# SQLite / Prisma
+backend/db/prisma/db/*.db
+backend/db/prisma/db/*.sqlite
+backend/db/prisma/db/*.sqlite3
+backend/db/prisma/db/*.db-journal
+backend/db/prisma/db/*.sqlite-journal
+backend/db/prisma/migrations/*/*.sql
+backend/db/prisma/migrations/*/migration.sql
+backend/db/prisma/migration_lock.toml
+backend/db/prisma/.env*
+prisma/
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+
+# VS Code
+.vscode/
+
+# JetBrains IDEs
+.idea/
+
+# MacOS
+.DS_Store
+
+# Misc
+Thumbs.db
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
