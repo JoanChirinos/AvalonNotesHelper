@@ -1,0 +1,66 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Game {
+  id         String   @id
+  start_time DateTime
+  active     Boolean  @default(true)
+  players    GamePlayer[]
+  quests     Quest[]
+}
+
+model Player {
+  id      Int      @id @default(autoincrement())
+  name    String
+  active  Boolean @default(true)
+  games   GamePlayer[]
+  rounds  RoundPlayer[]
+  kingRounds Round[] @relation("KingPlayer")
+}
+
+model Quest {
+  id      Int      @id @default(autoincrement())
+  game    Game     @relation(fields: [gameId], references: [id])
+  gameId  String
+  rounds  Round[]
+}
+
+model Round {
+  id        Int      @id @default(autoincrement())
+  quest     Quest    @relation(fields: [questId], references: [id])
+  questId   Int
+  king      Int
+  kingPlayer Player? @relation("KingPlayer", fields: [king], references: [id])
+  fails     Int
+  roundPlayers RoundPlayer[]
+}
+
+// Players in a game
+model GamePlayer {
+  id        Int    @id @default(autoincrement())
+  game      Game   @relation(fields: [gameId], references: [id])
+  gameId    String
+  player    Player @relation(fields: [playerId], references: [id])
+  playerId  Int
+  role      String  @default("")
+}
+
+// Players in a round
+model RoundPlayer {
+  id        Int    @id @default(autoincrement())
+  round     Round  @relation(fields: [roundId], references: [id])
+  roundId   Int
+  player    Player @relation(fields: [playerId], references: [id])
+  playerId  Int
+  team      Boolean
+  approval  Boolean
+}

@@ -1,0 +1,44 @@
+-- CreateTable
+CREATE TABLE "Game" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "start_time" DATETIME NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true
+);
+
+-- CreateTable
+CREATE TABLE "Quest" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "gameId" TEXT NOT NULL,
+    CONSTRAINT "Quest_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "Round" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "questId" INTEGER NOT NULL,
+    "king" INTEGER NOT NULL,
+    "fails" INTEGER NOT NULL,
+    CONSTRAINT "Round_questId_fkey" FOREIGN KEY ("questId") REFERENCES "Quest" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Round_king_fkey" FOREIGN KEY ("king") REFERENCES "Player" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "GamePlayer" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "gameId" TEXT NOT NULL,
+    "playerId" INTEGER NOT NULL,
+    "role" TEXT NOT NULL DEFAULT '',
+    CONSTRAINT "GamePlayer_gameId_fkey" FOREIGN KEY ("gameId") REFERENCES "Game" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "GamePlayer_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "RoundPlayer" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "roundId" INTEGER NOT NULL,
+    "playerId" INTEGER NOT NULL,
+    "team" BOOLEAN NOT NULL,
+    "approval" BOOLEAN NOT NULL,
+    CONSTRAINT "RoundPlayer_roundId_fkey" FOREIGN KEY ("roundId") REFERENCES "Round" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "RoundPlayer_playerId_fkey" FOREIGN KEY ("playerId") REFERENCES "Player" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);

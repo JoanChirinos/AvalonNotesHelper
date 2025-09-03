@@ -27,22 +27,21 @@ backend/build/
 backend/.env*
 frontend/.env*
 
-# SQLite / Prisma
-backend/db/prisma/db/*.db
-backend/db/prisma/db/*.sqlite
-backend/db/prisma/db/*.sqlite3
-backend/db/prisma/db/*.db-journal
-backend/db/prisma/db/*.sqlite-journal
-backend/db/prisma/migrations/*/*.sql
-backend/db/prisma/migrations/*/migration.sql
-backend/db/prisma/migration_lock.toml
-backend/db/prisma/.env*
-prisma/
+# Exclude database files
 *.db
 *.sqlite
 *.sqlite3
 *.db-journal
 *.sqlite-journal
+
+# Exclude Prisma migration lock and environment files
+backend/prisma/migrations/migration_lock.toml
+backend/prisma/.env*
+
+# Exclude generated SQL migration files, but keep migration folders
+backend/db/prisma/migrations/*/*.sql
+
+# Do NOT exclude the prisma directory or schema.prisma!
 
 # VS Code
 .vscode/
