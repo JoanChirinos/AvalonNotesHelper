@@ -1,6 +1,5 @@
 import express from "express";
 import cors from "cors";
-import playersRoutes from "./routes/players.ts";
 import avalonRoutes from "./routes/avalon.ts";
 
 const app = express();
@@ -19,7 +18,6 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use("/api/players", playersRoutes);
 app.use("/api/avalon", avalonRoutes);
 
 app.listen(5000, () => console.log("Server running on port 5000"));

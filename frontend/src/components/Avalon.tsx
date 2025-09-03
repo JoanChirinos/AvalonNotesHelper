@@ -22,7 +22,7 @@ export default function Avalon() {
     <>
       <nav className="navbar navbar-expand-md navbar-dark bg-dark">
         <div className="container-fluid d-flex justify-content-between">
-          <span className="navbar-brand">Avalon Notes Helper</span>
+          <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
         </div>
       </nav>
       <main className="container mt-3">
@@ -51,7 +51,7 @@ export default function Avalon() {
               </button>
             </div>
             <div id="games-list">
-              {games.map(game => (
+              {games.sort((a, b) => b.start_time.localeCompare(a.start_time)).map(game => (
                 <Link
                   key={game.game_id}
                   to={`/avalon/game/${game.game_id}`}

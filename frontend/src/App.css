@@ -36,3 +36,9 @@
     transform: rotate(360deg);
   }
 }
+
+.game-setup-player:hover {
+  color: var(--bs-light) !important;
+  background-color: var(--bs-danger) !important;
+  outline-color: var(--bs-danger) !important;
+}
