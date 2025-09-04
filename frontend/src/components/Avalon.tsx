@@ -60,7 +60,12 @@ export default function Avalon() {
                   <div className="card mb-3 shadow-sm">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <span>Started: <strong>{game.start_time}</strong></span>
-                      <span className="badge bg-secondary">{game.player_count} Players</span>
+                      <span>
+                        <span className={`badge ${game.active ? "bg-success" : "bg-warning"} mx-1`}>
+                          {game.active ? "In Progress" : "Setup"}
+                        </span>
+                        <span className="badge bg-secondary mx-1">{game.player_count} Players</span>
+                      </span>
                     </div>
                     <div className="card-body py-2">
                       <div className="d-flex flex-wrap align-items-center">

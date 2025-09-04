@@ -10,11 +10,13 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// active && quests.length == 0 -> setup stage
+// active && quests.length > 0 -> in-play stage
+// !active -> archived
 model Game {
   id         String   @id
   start_time DateTime
   active     Boolean  @default(true)
-  archived   Boolean  @default(false)
   players    GamePlayer[]
   quests     Quest[]
 }

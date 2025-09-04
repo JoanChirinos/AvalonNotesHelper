@@ -86,17 +86,12 @@ export default function AvalonGameSetup() {
   };
 
   const startGame = async () => {
-    const res = await fetch("/api/avalon/new_game", {
+    await fetch(`/api/avalon/game/${game_id}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" }
     });
-    const data = await res.json();
-    const gameId = data.game?.id;
-    if (gameId) {
-      navigate(`/avalon/game/${gameId}`);
-    } else {
-      alert("Failed to create game.");
-    }
+    // Immediately navigate to the game view
+    navigate(`/avalon/game/${game_id}`);
   };
 
   return (

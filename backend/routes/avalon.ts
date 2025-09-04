@@ -32,9 +32,13 @@ router.get("/landing/games", async (req: Request, res: Response) => {
       include: {
         players: {
           include: {
-            player: true
+            player: true,
           }
-        }
+        },
+        quests: true,
+      },
+      orderBy: {
+        start_time: "asc",
       }
     });
     // Format games for frontend
@@ -49,12 +53,53 @@ router.get("/landing/games", async (req: Request, res: Response) => {
         hour12: true
       }),
       player_count: game.players.length,
-      player_names: game.players.map(gp => gp.player.name)
+      player_names: game.players.map(gp => gp.player.name),
+      active: game.quests.length > 0,
     }));
     res.json({ games: formattedGames });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch games" });
+  }
+});
+
+router.get("/game/:game_id", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const game = await prisma.game.findUnique({
+      where: { id: game_id },
+      include: { quests: true }
+    });
+    if (!game) {
+      return res.status(404).json({ error: "Game not found" });
+    }
+    res.json({ game });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch game" });
+  }
+});
+
+router.post("/game/:game_id/start", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const updatedGame = await prisma.game.update({
+      where: {
+        id: game_id,
+        active: true,
+      },
+      data: { quests: { create: {} } },
+    });
+    res.json({ game: updatedGame });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to start game" });
   }
 });
 
