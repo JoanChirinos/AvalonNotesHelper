@@ -1,3 +1,4 @@
+import dotenv from 'dotenv';
 import express from "express";
 import fs from "fs";
 import https from "https";
@@ -7,6 +8,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 import avalonRoutes from "./routes/avalon.js";
+
+dotenv.config();
 
 console.log(`Starting server. PROD=${process.env.PROD}`);
 
