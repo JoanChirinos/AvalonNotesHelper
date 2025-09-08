@@ -17,15 +17,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-if (process.env.PROD === "true") {
-  const buildPath = path.resolve(__dirname, "../../frontend/build");
-  app.use(express.static(buildPath));
-  // Serve index.html for any unknown route (for React Router)
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(buildPath, "index.html"));
-  });
-}
-
 // Middleware for logging requests
 app.use((req, res, next) => {
   const now = new Date().toISOString(); // timestamp
@@ -43,6 +34,14 @@ app.use("/api/avalon", avalonRoutes);
 
 // Environment-based server setup
 if (process.env.PROD === "true") {
+
+  const buildPath = path.resolve(__dirname, "../../frontend/build");
+  app.use(express.static(buildPath));
+  // Serve index.html for any unknown route (for React Router)
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(buildPath, "index.html"));
+  });
+
   // Load certs
   const privateKey = fs.readFileSync(process.env.PRIVATE_KEY_PATH!);
   const certificate = fs.readFileSync(process.env.CERTIFICATE_PATH!);
