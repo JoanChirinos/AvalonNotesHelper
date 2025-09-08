@@ -53,7 +53,7 @@ npm run build
 
 ### Backend
 1. Set up your environment file.
-  1. Change the `PROD` flag in the `.env` file in the backend directory to `"true"`.
+  1. Set the `PROD` flag in the `.env` file in the backend directory to `"true"`.
 	2. You likely also want to change the name of the database to your prod database
 	3. Set the paths to your private key and certificate files for HTTPS
 ```env
@@ -73,7 +73,7 @@ npm run build
 npm run start
 ```
 
-This should start serving your Express app with HTTPS and redirecting HTTP.
+This should start serving your Express app with HTTPS and redirecting HTTP. Node has to be started by a user with enough permissions to read the certs. We will eventually switch to nginx, probably
 
 ---
 
