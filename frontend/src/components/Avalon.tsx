@@ -51,7 +51,7 @@ export default function Avalon() {
               </button>
             </div>
             <div id="games-list">
-              {games.sort((a, b) => b.start_time.localeCompare(a.start_time)).map(game => (
+              {games.map(game => (
                 <Link
                   key={game.game_id}
                   to={`/avalon/game/${game.game_id}`}
@@ -69,7 +69,7 @@ export default function Avalon() {
                     </div>
                     <div className="card-body py-2">
                       <div className="d-flex flex-wrap align-items-center">
-                        {game.player_names.sort().map(player_name => (
+                        {game.player_names.map(player_name => (
                           <span
                             key={player_name}
                             className="badge bg-primary me-1 mb-1"

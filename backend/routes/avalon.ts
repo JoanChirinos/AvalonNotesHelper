@@ -38,7 +38,7 @@ router.get("/landing/games", async (req: Request, res: Response) => {
         quests: true,
       },
       orderBy: {
-        start_time: "asc",
+        start_time: "desc",
       }
     });
     // Format games for frontend
@@ -53,7 +53,7 @@ router.get("/landing/games", async (req: Request, res: Response) => {
         hour12: true
       }),
       player_count: game.players.length,
-      player_names: game.players.map(gp => gp.player.name),
+      player_names: game.players.map(gp => gp.player.name).sort(),
       active: game.quests.length > 0,
     }));
     res.json({ games: formattedGames });
@@ -89,12 +89,40 @@ router.post("/game/:game_id/start", async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Missing game_id parameter" });
   }
   try {
+    // Get the first player in the game
+    const gamePlayers = await prisma.gamePlayer.findMany({
+      where: { gameId: game_id },
+      orderBy: { id: "asc" },
+      include: { player: true }
+    });
+    const firstPlayerId = (gamePlayers.length > 0 && gamePlayers[0] !== undefined) ? gamePlayers[0].playerId : null;
+    if (!firstPlayerId) {
+      return res.status(400).json({ error: "No players in game to set as king" });
+    }
     const updatedGame = await prisma.game.update({
       where: {
         id: game_id,
         active: true,
       },
-      data: { quests: { create: {} } },
+      data: {
+        quests: {
+          create: {
+            rounds: {
+              create: {
+                king: firstPlayerId,
+                fails: 0,
+              }
+            }
+          }
+        }
+      },
+      include: {
+        quests: {
+          include: {
+            rounds: true
+          }
+        }
+      }
     });
     res.json({ game: updatedGame });
   } catch (err) {
@@ -206,6 +234,53 @@ router.get("/game/:game_id/valid_players", async (req: Request, res: Response) =
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch players" });
+  }
+});
+
+router.get("/game/:game_id/quests", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const quests = await prisma.quest.findMany({
+      where: { gameId: game_id },
+      include: {
+      rounds: {
+        include: {
+        roundPlayers: true
+        }
+      }
+      },
+      orderBy: { id: "asc" }
+    });
+    res.json({ quests });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch quests" });
+  }
+});
+
+// POST /api/avalon/game/:game_id/set_king - set king for a round
+router.post("/game/:game_id/set_king", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { king, round_id } = req.body;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  if (typeof king !== "number" || typeof round_id !== "number") {
+    return res.status(400).json({ error: "Missing or invalid king or round_id" });
+  }
+  try {
+    // Update the round's king
+    const updatedRound = await prisma.round.update({
+      where: { id: round_id },
+      data: { king },
+    });
+    res.json({ round: updatedRound });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to set king" });
   }
 });
 

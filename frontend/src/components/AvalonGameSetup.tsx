@@ -89,9 +89,7 @@ export default function AvalonGameSetup() {
     await fetch(`/api/avalon/game/${game_id}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" }
-    });
-    // Immediately navigate to the game view
-    navigate(`/avalon/game/${game_id}`);
+    }).then(() => navigate(`/avalon/game/${game_id}`));
   };
 
   return (
@@ -121,7 +119,7 @@ export default function AvalonGameSetup() {
                       value={selectedPlayer}
                       onChange={e => setSelectedPlayer(e.target.value)}
                     >
-                      <option className="d-none" value="" selected disabled>Select player</option>
+                      <option className="d-none" value="" disabled>Select player</option>
                       {validPlayers.sort((a, b) => a.name.localeCompare(b.name)).map(p => (
                         <option className="text-dark" key={p.id} value={p.id}>{p.name}</option>
                       ))}
