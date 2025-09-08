@@ -52,10 +52,16 @@ npm run build
 ```
 
 ### Backend
-1. Change the `PROD` flag in the `.env` file in the backend directory to `"true"`. You likely also want to change the name of the database to your prod database
+1. Set up your environment file.
+  1. Change the `PROD` flag in the `.env` file in the backend directory to `"true"`.
+	2. You likely also want to change the name of the database to your prod database
+	3. Set the paths to your private key and certificate files for HTTPS
 ```env
 DATABASE_URL="file:./db/{DB_NAME}.db"
 PROD="true"
+
+PRIVATE_KEY_PATH="/path/to/privkey.pem"
+CERTIFICATE_PATH="/path/to/fullchain.pem"
 ```
 
 2. Then 

@@ -44,8 +44,8 @@ app.use("/api/avalon", avalonRoutes);
 // Environment-based server setup
 if (process.env.PROD === "true") {
   // Load certs
-  const privateKey = fs.readFileSync("/etc/letsencrypt/live/app.joanchirinos.com/privkey.pem");
-  const certificate = fs.readFileSync("/etc/letsencrypt/live/app.joanchirinos.com/fullchain.pem");
+  const privateKey = fs.readFileSync(process.env.PRIVATE_KEY_PATH!);
+  const certificate = fs.readFileSync(process.env.CERTIFICATE_PATH!);
 
   https.createServer({key: privateKey, cert: certificate}, app).listen(443, () => console.log("Server running on port 443"));
 
