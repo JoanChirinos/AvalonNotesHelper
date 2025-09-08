@@ -4,7 +4,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "nodemon --watch 'routes/*.ts' --exec 'ts-node' server.ts",
+    "dev": "nodemon --watch 'routes/*.ts' --exec 'node --loader ts-node/esm --experimental-specifier-resolution=node' server.ts",
     "build": "tsc",
     "setup": "npm install && npx prisma migrate dev --name init && npx prisma generate",
     "start": "node dist/server.js",
