@@ -284,4 +284,42 @@ router.post("/game/:game_id/set_king", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/game/:game_id/toggle_team_player", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { player_id, round_id } = req.body;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  if (typeof player_id !== "number" || typeof round_id !== "number") {
+    return res.status(400).json({ error: "Missing or invalid player_id or round_id" });
+  }
+  try {
+    // Check if player is already on the team for this round
+    const existing = await prisma.roundPlayer.findFirst({
+      where: { roundId: round_id, playerId: player_id },
+    });
+    if (existing) {
+      // Player is already on the team, so remove them
+      await prisma.roundPlayer.delete({
+        where: { id: existing.id },
+      });
+      return res.json({ action: "removed" });
+    } else {
+      // Player is not on the team, so add them
+      await prisma.roundPlayer.create({
+        data: {
+          roundId: round_id,
+          playerId: player_id,
+          team: true,
+          approval: false,
+        },
+      });
+      return res.json({ action: "added" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to toggle team player" });
+  }
+});
+
 export default router;

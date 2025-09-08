@@ -48,31 +48,32 @@ export default function AvalonGame() {
   }, [game_id]);
 
   // Fetch quests and set current round
+  const fetchQuests = () => {
+    fetch(`/api/avalon/game/${game_id}/quests`)
+      .then(res => res.json())
+      .then(data => {
+        setQuests(data.quests || []);
+        if (!data.quests || data.quests.length === 0) {
+          setCurrentRound(null);
+          return;
+        }
+        if (currentRound === null) {
+          // Set to last round of last quest
+          const latestRound = data.quests.at(-1)?.rounds?.at(-1) ?? null;
+          setCurrentRound(latestRound);
+        } else {
+          // Find the round with the same id as currentRound
+          let foundRound = null;
+          for (const quest of data.quests) {
+            foundRound = quest.rounds.find((r: Round) => r.id === currentRound.id);
+            if (foundRound) break;
+          }
+          setCurrentRound(foundRound ?? null);
+        }
+      });
+  };
+
   useEffect(() => {
-    const fetchQuests = () => {
-      fetch(`/api/avalon/game/${game_id}/quests`)
-        .then(res => res.json())
-        .then(data => {
-          setQuests(data.quests || []);
-          if (!data.quests || data.quests.length === 0) {
-            setCurrentRound(null);
-            return;
-          }
-          if (currentRound === null) {
-            // Set to last round of last quest
-            const latestRound = data.quests.at(-1)?.rounds?.at(-1) ?? null;
-            setCurrentRound(latestRound);
-          } else {
-            // Find the round with the same id as currentRound
-            let foundRound = null;
-            for (const quest of data.quests) {
-              foundRound = quest.rounds.find((r: Round) => r.id === currentRound.id);
-              if (foundRound) break;
-            }
-            setCurrentRound(foundRound ?? null);
-          }
-        });
-    };
     fetchQuests();
     const interval = setInterval(fetchQuests, 5000);
     return () => clearInterval(interval);
@@ -84,14 +85,32 @@ export default function AvalonGame() {
     if (!currentRound || !game_id) return;
     // Optimistically update UI
     setCurrentRound({ ...currentRound, king: playerId });
-    // Send update to backend
     await fetch(`/api/avalon/game/${game_id}/set_king`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ king: playerId, round_id: currentRound.id })
     });
-    // Optionally, re-fetch quests to sync
   };
+  
+  // // State for proposed team selection
+  // const [proposedTeam, setProposedTeam] = useState<number[]>([]);
+
+  // // Handler for toggling a player in the proposed team
+  // const handleTeamToggle = (playerId: number) => {
+  //   setProposedTeam(prev =>
+  //     prev.includes(playerId)
+  //       ? prev.filter(id => id !== playerId)
+  //       : [...prev, playerId]
+  //   );
+  // };
+
+  const handleTeamToggle = async (playerId: number) => {
+    await fetch(`/api/avalon/game/${game_id}/toggle_team_player`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ player_id: playerId, round_id: currentRound?.id })
+    }).then(() => {fetchQuests();}) ;
+  }
 
   return (
     <>
@@ -153,6 +172,18 @@ export default function AvalonGame() {
               ))}
             </div>
             <div className="mb-2"><strong>Proposed Team</strong></div>
+            <div className="d-flex flex-wrap mb-2">
+              {players.map(p => (
+                <div
+                  className={`card me-2 mb-2 selectable-card ${currentRound?.roundPlayers.some(rp => rp.playerId === p.id) ? "bg-success text-white" : ""}`}
+                  key={p.id}
+                  style={{ cursor: "pointer" }}
+                  onClick={() => handleTeamToggle(p.id)}
+                >
+                  {p.name}
+                </div>
+              ))}
+            </div>
             <div className="mb-2"><strong>Team Votes</strong></div>
             <div className="mb-2"><strong>Quest Votes</strong></div>
           </div>
