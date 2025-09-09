@@ -5,7 +5,7 @@ export default function Home() {
   return (
     <div className="container-fluid">
       <div className="alert alert-success my-2" role="alert">
-        <Link to="/avalon" className="alert-link">Avalon Notes Helper</Link> 2.0.0 preview out now!
+        <Link to="/avalon" className="alert-link">Avalon Notes Helper</Link> 2.0.0 out now!
       </div>
       <h1 className="d1 text-center">Joan's Personal Website!</h1>
       <div className="container">
