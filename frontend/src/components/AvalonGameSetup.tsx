@@ -89,7 +89,7 @@ export default function AvalonGameSetup() {
     await fetch(`/api/avalon/game/${game_id}/start`, {
       method: "POST",
       headers: { "Content-Type": "application/json" }
-    }).then(() => navigate(`/avalon/game/${game_id}`));
+    }).then(() => navigate(`/avalon/game/${game_id}`)).then(() => window.location.reload()); // Force reload to update immediately
   };
 
   return (

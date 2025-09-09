@@ -95,8 +95,15 @@ router.post("/game/:game_id/start", async (req: Request, res: Response) => {
       orderBy: { id: "asc" },
       include: { player: true }
     });
-    const firstPlayerId = (gamePlayers.length > 0 && gamePlayers[0] !== undefined) ? gamePlayers[0].playerId : null;
-    if (!firstPlayerId) {
+    let randomPlayerId: number | null = null;
+    if (gamePlayers.length > 0) {
+      const randomIndex = Math.floor(Math.random() * gamePlayers.length);
+      const selectedPlayer = gamePlayers[randomIndex];
+      if (selectedPlayer !== undefined && selectedPlayer.playerId !== undefined) {
+        randomPlayerId = selectedPlayer.playerId;
+      }
+    }
+    if (!randomPlayerId) {
       return res.status(400).json({ error: "No players in game to set as king" });
     }
     const updatedGame = await prisma.game.update({
@@ -109,7 +116,14 @@ router.post("/game/:game_id/start", async (req: Request, res: Response) => {
           create: {
             rounds: {
               create: {
-                king: firstPlayerId,
+                king: randomPlayerId,
+                roundPlayers: {
+                  create: gamePlayers.map(gp => ({
+                    playerId: gp.playerId,
+                    team: false,
+                    approval: false,
+                  })),
+                },
                 fails: 0,
               }
             }
@@ -294,31 +308,174 @@ router.post("/game/:game_id/toggle_team_player", async (req: Request, res: Respo
     return res.status(400).json({ error: "Missing or invalid player_id or round_id" });
   }
   try {
-    // Check if player is already on the team for this round
-    const existing = await prisma.roundPlayer.findFirst({
+    // Toggle the player's team status for the round
+    const roundPlayer = await prisma.roundPlayer.findFirst({
       where: { roundId: round_id, playerId: player_id },
     });
-    if (existing) {
-      // Player is already on the team, so remove them
-      await prisma.roundPlayer.delete({
-        where: { id: existing.id },
-      });
-      return res.json({ action: "removed" });
-    } else {
-      // Player is not on the team, so add them
-      await prisma.roundPlayer.create({
-        data: {
-          roundId: round_id,
-          playerId: player_id,
-          team: true,
-          approval: false,
-        },
-      });
-      return res.json({ action: "added" });
+    if (!roundPlayer) {
+      return res.status(404).json({ error: "Round player not found" });
     }
+    const updatedRoundPlayer = await prisma.roundPlayer.update({
+      where: { id: roundPlayer.id },
+      data: { team: !roundPlayer.team },
+    });
+    res.json({ roundPlayer: updatedRoundPlayer });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to toggle team player" });
+  }
+});
+
+router.post("/game/:game_id/toggle_votes", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { player_id, round_id } = req.body;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  if (typeof player_id !== "number" || typeof round_id !== "number") {
+    return res.status(400).json({ error: "Missing or invalid player_id or round_id" });
+  }
+  try {
+    // Toggle the player's approval vote for the round
+    const roundPlayer = await prisma.roundPlayer.findFirst({
+      where: { roundId: round_id, playerId: player_id },
+    });
+    if (!roundPlayer) {
+      return res.status(404).json({ error: "Round player not found" });
+    }
+    const updatedRoundPlayer = await prisma.roundPlayer.update({
+      where: { id: roundPlayer.id },
+      data: { approval: !roundPlayer.approval },
+    });
+    res.json({ roundPlayer: updatedRoundPlayer });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to toggle votes" });
+  }
+});
+
+router.post("/game/:game_id/submit_failures", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { count, round_id } = req.body;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  if (typeof count !== "number" || typeof round_id !== "number") {
+    return res.status(400).json({ error: "Missing or invalid count or round_id" });
+  }
+  try {
+    // Update the round's fail count
+    const updatedRound = await prisma.round.update({
+      where: { id: round_id },
+      data: { fails: count },
+    });
+    res.json({ round: updatedRound });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to submit failures" });
+  }
+});
+
+router.post("/game/:game_id/submit_round", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { round_id } = req.body;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  if (typeof round_id !== "number") {
+    return res.status(400).json({ error: "Missing or invalid round_id" });
+  }
+  try {
+    // If the number of approval votes is greater than half the number of players AND there are no failures, the quest succeeds; so make a new quest with a new round
+    const roundPlayers = await prisma.roundPlayer.findMany({
+      where: { roundId: round_id },
+    });
+    const approvalVotes = roundPlayers.filter(rp => rp.approval).length;
+    const playerCount = roundPlayers.length;
+    const currentRound = await prisma.round.findUnique({
+      where: { id: round_id },
+      include: { quest: true }
+    });
+    if (!currentRound) {
+      return res.status(404).json({ error: "Round not found" });
+    }
+    if (currentRound.fails > 0 || approvalVotes > playerCount / 2 && currentRound.fails === 0) {
+      // Quest succeeded, create a new quest with a new round. Like when starting a new game, pick a random king
+      const gamePlayers = await prisma.gamePlayer.findMany({
+        where: { gameId: game_id },
+        orderBy: { id: "asc" },
+        include: { player: true }
+      });
+      let randomPlayerId: number | null = null;
+      if (gamePlayers.length > 0) {
+        const randomIndex = Math.floor(Math.random() * gamePlayers.length);
+        const selectedPlayer = gamePlayers[randomIndex];
+        if (selectedPlayer !== undefined && selectedPlayer.playerId !== undefined) {
+          randomPlayerId = selectedPlayer.playerId;
+        }
+      }
+      if (!randomPlayerId) {
+        return res.status(400).json({ error: "No players in game to set as king" });
+      }
+      const newQuest = await prisma.quest.create({
+        data: {
+          gameId: game_id,
+          rounds: {
+            create: {
+              king: randomPlayerId,
+              roundPlayers: {
+                create: gamePlayers.map(gp => ({
+                  playerId: gp.playerId,
+                  team: false,
+                  approval: false,
+                })),
+              },
+              fails: 0,
+            }
+          }
+        },
+        include: {
+          rounds: true
+        }
+      });
+      res.json({ quest: newQuest });
+    } else {
+      // Quest failed, so just create a new round in the current quest
+      const gamePlayers = await prisma.gamePlayer.findMany({
+        where: { gameId: game_id },
+        orderBy: { id: "asc" },
+        include: { player: true }
+      });
+      let randomPlayerId: number | null = null;
+      if (gamePlayers.length > 0) {
+        const randomIndex = Math.floor(Math.random() * gamePlayers.length);
+        const selectedPlayer = gamePlayers[randomIndex];
+        if (selectedPlayer !== undefined && selectedPlayer.playerId !== undefined) {
+          randomPlayerId = selectedPlayer.playerId;
+        }
+      }
+      if (!randomPlayerId) {
+        return res.status(400).json({ error: "No players in game to set as king" });
+      }
+      const newRound = await prisma.round.create({
+        data: {
+          questId: currentRound.questId,
+          king: randomPlayerId,
+          roundPlayers: {
+            create: gamePlayers.map(gp => ({
+              playerId: gp.playerId,
+              team: false,
+              approval: false,
+            })),
+          },
+          fails: 0,
+        }
+      });
+      res.json({ round: newRound });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to submit round" });
   }
 });
 
