@@ -38,6 +38,8 @@ export default function AvalonGame() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
 
+  const [detailedView, setDetailedView] = useState<boolean>(true);
+
   // Fetch players once when component mounts
   useEffect(() => {
     fetch(`/api/avalon/game/${game_id}/players`)
@@ -73,7 +75,7 @@ export default function AvalonGame() {
         // Check failures vs proposed team size
         if (latestRound) {
           const teamCount = latestRound.roundPlayers.filter(rp => rp.team).length;
-          if (latestRound.fails > teamCount - 1) {
+          if (latestRound.fails > teamCount) {
             latestRound = { ...latestRound, fails: 0 };
             // Update backend as well
             fetch(`/api/avalon/game/${game_id}/submit_failures`, {
@@ -90,7 +92,7 @@ export default function AvalonGame() {
 
   useEffect(() => {
     fetchQuests();
-    const interval = setInterval(fetchQuests, 5000);
+    const interval = setInterval(fetchQuests, 500);
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game_id]);
@@ -113,7 +115,7 @@ export default function AvalonGame() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ player_id: playerId, round_id: currentRound?.id })
     });
-    await fetchQuests();
+    fetchQuests();
   }
 
   const handleVotesToggle = async (playerId: number) => {
@@ -122,7 +124,7 @@ export default function AvalonGame() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ player_id: playerId, round_id: currentRound?.id })
     });
-    await fetchQuests();
+    fetchQuests();
   }
 
   const handleQuestFailures = async (count: number) => {
@@ -131,7 +133,7 @@ export default function AvalonGame() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ count: count, round_id: currentRound?.id })
     });
-    await fetchQuests();
+    fetchQuests();
   }
 
   const handleSubmitRound = async () => {
@@ -142,7 +144,7 @@ export default function AvalonGame() {
       body: JSON.stringify({ round_id: currentRound.id })
     });
     // Immediately refresh quests and update state
-    await fetchQuests();
+    fetchQuests();
   };
 
   return (
@@ -150,125 +152,141 @@ export default function AvalonGame() {
       <nav className="navbar navbar-expand-md navbar-dark bg-dark">
         <div className="container-fluid d-flex justify-content-between">
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
+          <div>
+            <button className="btn btn-outline-light" onClick={() => setDetailedView(!detailedView)}>
+              {detailedView ? "Hide Non-terminal Rounds" : "Show Non-terminal Rounds"}
+            </button>
+          </div>
         </div>
       </nav>
-      <main className="container mt-3">
-        {quests.map(quest => (
-          <div key={quest.id} className="card mb-3 shadow-sm">
-            <div className="card-header">
-              <h5 className="mb-0">
-                Quest {quests.findIndex(q => q.id === quest.id) + 1}
-              </h5>
-            </div>
-            <div className="card-body">
-              {quest.rounds
-                .filter((round, idx, arr) => {
-                  // Exclude last round of last quest
-                  const isLastQuest = quest === quests.at(-1);
-                  const isLastRound = round === arr.at(-1);
-                  return !(isLastQuest && isLastRound);
-                })
-                .map(round => (
-                    <div
-                      key={round.id}
-                      className="card mb-2 d-flex"
-                    >
+      <main className="container-fluid mt-3" style={{ maxWidth: "80%" }}>
+        <div className="d-flex flex-wrap justify-content-around">
+          {quests.map(quest => (
+            <div key={quest.id} className="card mb-3 shadow-sm mx-2" style={{ width: "auto", flex: "0 1 auto" }}>
+              <div className="card-header d-flex flex-row justify-content-between align-items-center">
+                <h5 className="mb-0">
+                  Quest {quests.findIndex(q => q.id === quest.id) + 1}
+                </h5>
+              </div>
+              <div className="card-body">
+                {quest.rounds
+                  .filter((round, idx, arr) => {
+                    // If last quest, include second to last round if exists
+                    const isLastQuest = quest === quests.at(-1);
+                    const isSecondToLastRound = isLastQuest && quest.rounds.length > 1 && round === quest.rounds.at(-2);
+                    if (isSecondToLastRound) return true;
+
+                    // Exclude all but last rounds if not in detailed view
+                    return detailedView || round === quest.rounds.at(-1);
+                  })
+                  .map(round => {
+                    const lastQuest = quests.at(-1);
+                    const lastQuestRounds = lastQuest?.rounds;
+                    const isLastQuestLastRoundWithMultipleRounds = lastQuestRounds && round === lastQuestRounds.at(-1) && lastQuestRounds.length > 1;
+                    const isLastQuestLastRound = lastQuestRounds && round === lastQuestRounds.at(-1);
+                    return (
                       <div
-                        className={`card-header d-flex justify-content-between align-items-center ${
-                          (() => {
-                            const totalPlayers = round.roundPlayers.length;
-                            const approvedVotes = round.roundPlayers.filter(rp => rp.approval).length;
-                            if (approvedVotes > Math.ceil(totalPlayers / 2)) {
-                              return round.fails === 0 ? "bg-success text-white" : "bg-danger text-white";
-                            }
-                            return "";
-                          })()
-                        }`}
+                        key={round.id}
+                        className={`card mb-2 d-flex ${isLastQuestLastRoundWithMultipleRounds ? "d-none" : ""}`}
+                        style={isLastQuestLastRound ? { visibility: "hidden" } : {}}
                       >
-                        <div>
-                          Round {quest.rounds.findIndex(r => r.id === round.id) + 1}
+                        <div
+                          className={`card-header d-flex justify-content-between align-items-center ${
+                            (() => {
+                              const totalPlayers = round.roundPlayers.length;
+                              const approvedVotes = round.roundPlayers.filter(rp => rp.approval).length;
+                              if (approvedVotes > Math.floor(totalPlayers / 2)) {
+                                return round.fails === 0 ? "bg-success text-white" : "bg-danger text-white";
+                              }
+                              return "";
+                            })()
+                          }`}
+                        >
+                          <div>
+                            Round {quest.rounds.findIndex(r => r.id === round.id) + 1}
+                          </div>
+                          <div>
+                            Fails: {round.fails}
+                          </div>
                         </div>
-                        <div>
-                          Fails: {round.fails}
+                      <div className="card-body d-flex flex-row justify-content-center flex-wrap">
+                        <div className="card d-inline-flex flex-row flex-wrap" style={{ width: "auto" }}>
+                          {round.roundPlayers.filter(rp => rp.team).map(rp => {
+                            const player = players.find(p => p.id === rp.playerId);
+                            return (
+                              <div className="me-2 mb-2 d-flex flex-column align-items-center justify-content-center" key={rp.playerId}>
+                                <div className="mx-2 my-1 d-flex align-items-center">
+                                  {player ? (
+                                    round.king === rp.playerId ? (
+                                      <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
+                                        {player.name}
+                                      </span>
+                                    ) : (
+                                      player.name
+                                    )
+                                  ) : (
+                                    round.king === rp.playerId ? (
+                                      <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
+                                        {`Player ${rp.playerId}`}
+                                      </span>
+                                    ) : (
+                                      `Player ${rp.playerId}`
+                                    )
+                                  )}
+                                </div>
+                                <div>
+                                  {rp.approval ? (
+                                    <span style={{ color: 'green', fontWeight: 'bold' }}>&#10003;</span>
+                                  ) : (
+                                    <span style={{ color: 'red', fontWeight: 'bold' }}>&#10007;</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
-                      </div>
-                    <div className="card-body d-flex flex-row justify-content-center flex-wrap">
-                      <div className="card d-inline-flex flex-row" style={{ width: "auto" }}>
-                        {round.roundPlayers.filter(rp => rp.team).map(rp => {
-                          const player = players.find(p => p.id === rp.playerId);
-                          return (
-                            <div className="me-2 mb-2 d-flex flex-column align-items-center justify-content-center" key={rp.playerId}>
-                              <div className="mx-2 my-1 d-flex align-items-center">
-                                {player ? (
-                                  round.king === rp.playerId ? (
-                                    <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
-                                      {player.name}
-                                    </span>
+                        <div className="d-inline-flex flex-row flex-wrap" style={{ width: "auto" }}>
+                          {round.roundPlayers.filter(rp => !rp.team).map(rp => {
+                            const player = players.find(p => p.id === rp.playerId);
+                            return (
+                              <div className="me-2 mb-2 d-flex flex-column align-items-center justify-content-center" key={rp.playerId}>
+                                <div className="mx-2 my-1 d-flex align-items-center">
+                                  {player ? (
+                                    round.king === rp.playerId ? (
+                                      <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
+                                        {player.name}
+                                      </span>
+                                    ) : (
+                                      player.name
+                                    )
                                   ) : (
-                                    player.name
-                                  )
-                                ) : (
-                                  round.king === rp.playerId ? (
-                                    <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
-                                      {`Player ${rp.playerId}`}
-                                    </span>
+                                    round.king === rp.playerId ? (
+                                      <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
+                                        {`Player ${rp.playerId}`}
+                                      </span>
+                                    ) : (
+                                      `Player ${rp.playerId}`
+                                    )
+                                  )}
+                                </div>
+                                <div>
+                                  {rp.approval ? (
+                                    <span style={{ color: 'green', fontWeight: 'bold' }}>&#10003;</span>
                                   ) : (
-                                    `Player ${rp.playerId}`
-                                  )
-                                )}
+                                    <span style={{ color: 'red', fontWeight: 'bold' }}>&#10007;</span>
+                                  )}
+                                </div>
                               </div>
-                              <div>
-                                {rp.approval ? (
-                                  <span style={{ color: 'green', fontWeight: 'bold' }}>&#10003;</span>
-                                ) : (
-                                  <span style={{ color: 'red', fontWeight: 'bold' }}>&#10007;</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="d-inline-flex flex-row" style={{ width: "auto" }}>
-                        {round.roundPlayers.filter(rp => !rp.team).map(rp => {
-                          const player = players.find(p => p.id === rp.playerId);
-                          return (
-                            <div className="me-2 mb-2 d-flex flex-column align-items-center justify-content-center" key={rp.playerId}>
-                              <div className="mx-2 my-1 d-flex align-items-center">
-                                {player ? (
-                                  round.king === rp.playerId ? (
-                                    <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
-                                      {player.name}
-                                    </span>
-                                  ) : (
-                                    player.name
-                                  )
-                                ) : (
-                                  round.king === rp.playerId ? (
-                                    <span className="badge bg-warning text-dark" style={{ fontSize: "1rem", fontWeight: "normal" }}>
-                                      {`Player ${rp.playerId}`}
-                                    </span>
-                                  ) : (
-                                    `Player ${rp.playerId}`
-                                  )
-                                )}
-                              </div>
-                              <div>
-                                {rp.approval ? (
-                                  <span style={{ color: 'green', fontWeight: 'bold' }}>&#10003;</span>
-                                ) : (
-                                  <span style={{ color: 'red', fontWeight: 'bold' }}>&#10007;</span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );})}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
         <div className="card mb-3 shadow-sm">
           <div className="card-header">
             <div className="d-flex justify-content-between align-items-center">
@@ -324,16 +342,16 @@ export default function AvalonGame() {
                 (() => {
                   const totalPlayers = currentRound.roundPlayers.length;
                   const approvedVotes = currentRound.roundPlayers.filter(rp => rp.approval).length;
-                  if (approvedVotes > Math.ceil(totalPlayers / 2)) {
-                  return currentRound.roundPlayers.filter(rp => rp.team).map((_, idx) => (
-                    <div
-                    className={`card me-2 mb-2 selectable-card ${currentRound.fails === idx ? "bg-danger text-white" : ""}`}
-                    key={idx}
-                    onClick={() => handleQuestFailures(idx)}
-                    >
-                    {idx}
-                    </div>
-                  ));
+                  if (approvedVotes > Math.floor(totalPlayers / 2)) {
+                    return Array.from({ length: currentRound.roundPlayers.filter(rp => rp.team).length + 1 }, (_, idx) => (
+                      <div
+                        className={`card me-2 mb-2 selectable-card ${currentRound.fails === idx ? "bg-danger text-white" : ""}`}
+                        key={idx}
+                        onClick={() => handleQuestFailures(idx)}
+                      >
+                        {idx}
+                      </div>
+                    ));
                   }
                   return null;
                 })()
