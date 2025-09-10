@@ -162,11 +162,28 @@ export default function AvalonGame() {
   const handleAddMinute = () => setTimer(t => t + 60);
   const handleSubtractMinute = () => setTimer(t => (t >= 60 ? t - 60 : 0));
 
+  // Play a sine wave beep when timer reaches 0
+  const playBeep = () => {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = ctx.createOscillator();
+    oscillator.type = "sine";
+    oscillator.frequency.value = 880;
+    oscillator.connect(ctx.destination);
+    oscillator.start();
+    setTimeout(() => {
+      oscillator.stop();
+      ctx.close();
+    }, 2000);
+  };
+
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (timerActive && timer > 0) {
       interval = setInterval(() => {
-        setTimer(prev => (prev > 0 ? prev - 1 : 0));
+        setTimer(prev => {
+          if (prev === 1) playBeep();
+          return prev > 0 ? prev - 1 : 0;
+        });
       }, 1000);
     } else if (!timerActive && interval) {
       clearInterval(interval);
