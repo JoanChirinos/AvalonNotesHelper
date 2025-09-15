@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, type Quest, type Round } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
 const prisma = new PrismaClient();
@@ -42,7 +42,7 @@ router.get("/landing/games", async (req: Request, res: Response) => {
       }
     });
     // Format games for frontend
-    const formattedGames = games.map(game => ({
+    const formattedGames = await Promise.all(games.map(async game => ({
       game_id: game.id,
       start_time: game.start_time.toLocaleDateString("en-US", {
         month: "short",
@@ -54,8 +54,10 @@ router.get("/landing/games", async (req: Request, res: Response) => {
       }),
       player_count: game.players.length,
       player_names: game.players.map(gp => gp.player.name).sort(),
-      active: game.quests.length > 0,
-    }));
+      in_setup: game.active && game.quests.length === 0,
+      active: game.active,
+      good_won: await getGameOutcome(game.id) === 1,
+    })));
     res.json({ games: formattedGames });
   } catch (err) {
     console.error(err);
@@ -385,6 +387,21 @@ router.post("/game/:game_id/submit_round", async (req: Request, res: Response) =
   if (typeof round_id !== "number") {
     return res.status(400).json({ error: "Missing or invalid round_id" });
   }
+  // Attempt to archive game before creating new round or quest
+  if (await getGameOutcome(game_id) !== 0) {
+    try {
+      await prisma.game.update({
+        where: { id: game_id },
+        data: { active: false },
+      });
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ error: "Failed to archive game" });
+    }
+    res.json({ message: "Game archived" });
+    return;
+  }
+  // Game is still ongoing, so either create a new round in the current quest or a new quest with a new round
   try {
     // If the number of approval votes is greater than half the number of players AND there are no failures, the quest succeeds; so make a new quest with a new round
     const roundPlayers = await prisma.roundPlayer.findMany({
@@ -406,15 +423,8 @@ router.post("/game/:game_id/submit_round", async (req: Request, res: Response) =
         orderBy: { id: "asc" },
         include: { player: true }
       });
-      let randomPlayerId: number | null = null;
-      if (gamePlayers.length > 0) {
-        const randomIndex = Math.floor(Math.random() * gamePlayers.length);
-        const selectedPlayer = gamePlayers[randomIndex];
-        if (selectedPlayer !== undefined && selectedPlayer.playerId !== undefined) {
-          randomPlayerId = selectedPlayer.playerId;
-        }
-      }
-      if (!randomPlayerId) {
+      const nextKingId = gamePlayers[(gamePlayers.findIndex(gp => gp.playerId === currentRound.king) + 1) % gamePlayers.length]?.playerId;
+      if (!nextKingId) {
         return res.status(400).json({ error: "No players in game to set as king" });
       }
       const newQuest = await prisma.quest.create({
@@ -422,7 +432,7 @@ router.post("/game/:game_id/submit_round", async (req: Request, res: Response) =
           gameId: game_id,
           rounds: {
             create: {
-              king: randomPlayerId,
+              king: nextKingId,
               roundPlayers: {
                 create: gamePlayers.map(gp => ({
                   playerId: gp.playerId,
@@ -446,21 +456,14 @@ router.post("/game/:game_id/submit_round", async (req: Request, res: Response) =
         orderBy: { id: "asc" },
         include: { player: true }
       });
-      let randomPlayerId: number | null = null;
-      if (gamePlayers.length > 0) {
-        const randomIndex = Math.floor(Math.random() * gamePlayers.length);
-        const selectedPlayer = gamePlayers[randomIndex];
-        if (selectedPlayer !== undefined && selectedPlayer.playerId !== undefined) {
-          randomPlayerId = selectedPlayer.playerId;
-        }
-      }
-      if (!randomPlayerId) {
+      const nextKingId = gamePlayers[(gamePlayers.findIndex(gp => gp.playerId === currentRound.king) + 1) % gamePlayers.length]?.playerId;
+      if (!nextKingId) {
         return res.status(400).json({ error: "No players in game to set as king" });
       }
       const newRound = await prisma.round.create({
         data: {
           questId: currentRound.questId,
-          king: randomPlayerId,
+          king: nextKingId,
           roundPlayers: {
             create: gamePlayers.map(gp => ({
               playerId: gp.playerId,
@@ -478,5 +481,42 @@ router.post("/game/:game_id/submit_round", async (req: Request, res: Response) =
     res.status(500).json({ error: "Failed to submit round" });
   }
 });
+
+async function getRoundOutcome(round: Round) {
+  const roundPlayers = await prisma.roundPlayer.findMany({
+    where: { roundId: round.id }
+  });
+  const approvalVotes = roundPlayers.filter(rp => rp.approval).length;
+  const playerCount = roundPlayers.length;
+  if (round.fails === 0 && approvalVotes > playerCount / 2) {
+    return 1;
+  }
+  if (round.fails > 0) {
+    return -1;
+  }
+  return 0;
+}
+
+async function getQuestOutcome(quest: Quest) {
+  const rounds = await prisma.round.findMany({
+    where: { questId: quest.id }
+  });
+  const outcomes = await Promise.all(rounds.map(getRoundOutcome));
+  if (outcomes.includes(1)) return 1;
+  if (outcomes.includes(-1)) return -1;
+  return 0;
+}
+
+async function getGameOutcome(gameId: string) {
+  const quests = await prisma.quest.findMany({
+    where: { gameId },
+  });
+  const outcomes = await Promise.all(quests.map(getQuestOutcome));
+  const successCount = outcomes.filter(o => o === 1).length;
+  const failCount = outcomes.filter(o => o === -1).length;
+  if (successCount >= 3) return 1;
+  if (failCount >= 3) return -1;
+  return 0;
+}
 
 export default router;

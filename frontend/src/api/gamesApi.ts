@@ -3,7 +3,9 @@ export type Game = {
   start_time: string;
   player_count: number;
   player_names: string[];
+  in_setup: boolean;
   active: boolean;
+  good_won: boolean;
 };
 
 export async function fetchGames(): Promise<Game[]> {

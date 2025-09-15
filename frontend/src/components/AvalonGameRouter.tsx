@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import AvalonGameSetup from "./AvalonGameSetup";
 import AvalonGame from "./AvalonGame";
+import AvalonGameArchived from "./AvalonGameArchived";
+import AvalonGameNotFound from "./AvalonGameNotFound";
 
 interface Game {
     id: string;
@@ -27,7 +29,7 @@ function AvalonGameRouter() {
       }
     }
     fetchGame();
-    const interval = setInterval(fetchGame, 5000);
+    const interval = setInterval(fetchGame, 500);
     return () => {
       mounted = false;
       clearInterval(interval);
@@ -35,13 +37,15 @@ function AvalonGameRouter() {
   }, [game_id]);
 
   if (loading) return <div>Loading...</div>;
-  if (!game) return <div>Game not found</div>;
 
-  // If no quests, show setup; otherwise, show game
-  // In the future, this will also show archived games
-  return game.quests && game.quests.length === 0
+  if (!game) return <AvalonGameNotFound />;
+  if (game.active) {
+    return game.quests && game.quests.length === 0
     ? <AvalonGameSetup />
     : <AvalonGame />;
+  } else {
+    return <AvalonGameArchived />;
+  }
 }
 
 export default AvalonGameRouter;

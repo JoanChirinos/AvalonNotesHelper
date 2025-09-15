@@ -45,12 +45,13 @@ export default function AvalonGameSetup() {
   }, [game_id, fetchValidPlayers]);
 
   // Add existing player
-  const addValidPlayer = async () => {
-    if (selectedPlayer) {
+  const addValidPlayer = async (playerId: string | null) => {
+    const playerToAdd = playerId ?? selectedPlayer;
+    if (playerToAdd) {
       await fetch(`/api/avalon/game/${game_id}/players`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ player_id: selectedPlayer }),
+        body: JSON.stringify({ player_id: playerToAdd }),
       });
       setSelectedPlayer("");
       // Refresh lists
@@ -107,7 +108,7 @@ export default function AvalonGameSetup() {
           </div>
           <div className="card-body">
             <div className="container-fluid mb-3">
-              <form onSubmit={e => { e.preventDefault(); addValidPlayer(); }}>
+              <form onSubmit={e => e.preventDefault()}>
                 <div className="row mb-2 align-items-end">
                   <div className="col-sm-3">
                     <span className="btn btn-light disabled w-100 mb-0">Choose Player</span>
@@ -117,16 +118,13 @@ export default function AvalonGameSetup() {
                       id="player-select"
                       className="form-select text-muted"
                       value={selectedPlayer}
-                      onChange={e => setSelectedPlayer(e.target.value)}
+                      onChange={e => { setSelectedPlayer(e.target.value); addValidPlayer(e.target.value); }}
                     >
                       <option className="d-none" value="" disabled>Select player</option>
                       {validPlayers.sort((a, b) => a.name.localeCompare(b.name)).map(p => (
                         <option className="text-dark" key={p.id} value={p.id}>{p.name}</option>
                       ))}
                     </select>
-                  </div>
-                  <div className="col-sm-2">
-                    <button className="btn btn-primary w-100" type="submit" disabled={!selectedPlayer}>Add</button>
                   </div>
                 </div>
               </form>
@@ -157,6 +155,7 @@ export default function AvalonGameSetup() {
         <div className="card mb-4">
           <div className="card-header d-flex justify-content-between align-items-center">
             <h5>Players in Game</h5>
+            <span className="badge bg-secondary">{gamePlayers.length} Players</span>
           </div>
           <div className="card-body" id="players-in-game">
             {gamePlayers.map((p) => (

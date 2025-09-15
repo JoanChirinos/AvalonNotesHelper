@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Link, useParams } from "react-router-dom";
 
-import { BiChevronUp, BiChevronDown, BiPlayCircle, BiPauseCircle, BiRevision, BiSolidGrid } from "react-icons/bi";
+import { BiCheck, BiChevronUp, BiChevronDown, BiPlayCircle, BiPauseCircle, BiRevision, BiSolidGrid, BiX } from "react-icons/bi";
 
 import "./Components.css";
 
@@ -149,6 +149,28 @@ export default function AvalonGame() {
     fetchQuests();
   };
 
+  const handleNewGameSamePlayers = async () => {
+    const res = await fetch("/api/avalon/new_game", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const newGameId = (await res.json()).game?.id;
+    if (newGameId) {
+      // Add all current players to new game
+      for (const player of players) {
+        await fetch(`/api/avalon/game/${newGameId}/players`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player_id: player.id }),
+        });
+      }
+      // Redirect to new game
+      window.location.href = `/avalon/game/${newGameId}`;
+    } else {
+      alert("Failed to create new game.");
+    }
+  };
+
   // Timer state and logic
   const TIMER_DEFAULT = 180; // 3 minutes in seconds
   const [timer, setTimer] = useState<number>(TIMER_DEFAULT);
@@ -242,6 +264,10 @@ export default function AvalonGame() {
         <div className="container-fluid d-flex justify-content-between">
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
           <div className="d-flex align-items-center gap-3">
+            {/* TODO: This should actually go back to setup (remove quests?) though that's non-trivial so this is easier for now */}
+            <button className="btn btn-outline-light" onClick={() => handleNewGameSamePlayers()}>
+              Again!
+            </button>
             <button className="btn btn-outline-light" onClick={() => setDetailedView(!detailedView)}>
               {detailedView ? "Hide Non-terminal Rounds" : "Show Non-terminal Rounds"}
             </button>
@@ -343,7 +369,9 @@ export default function AvalonGame() {
                             Round {quest.rounds.findIndex(r => r.id === round.id) + 1}
                           </div>
                           <div>
-                            Fails: {round.fails}
+                            {Array.from({ length: round.fails }).map((_, i) => (
+                              <BiX key={i} style={{ color: "white", fontSize: "2rem" }} />
+                            ))}
                           </div>
                         </div>
                       <div className="card-body d-flex flex-row justify-content-center flex-wrap">
@@ -373,9 +401,9 @@ export default function AvalonGame() {
                                 </div>
                                 <div>
                                   {rp.approval ? (
-                                    <span style={{ color: 'green', fontWeight: 'bold' }}>&#10003;</span>
+                                    <span style={{ color: 'green', fontWeight: 'bold', fontSize: '1.2rem' }}><BiCheck /></span>
                                   ) : (
-                                    <span style={{ color: 'red', fontWeight: 'bold' }}>&#10007;</span>
+                                    <span style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2rem' }}><BiX /></span>
                                   )}
                                 </div>
                               </div>
@@ -408,9 +436,9 @@ export default function AvalonGame() {
                                 </div>
                                 <div>
                                   {rp.approval ? (
-                                    <span style={{ color: 'green', fontWeight: 'bold' }}>&#10003;</span>
+                                    <span style={{ color: 'green', fontWeight: 'bold', fontSize: '1.2rem' }}><BiCheck /></span>
                                   ) : (
-                                    <span style={{ color: 'red', fontWeight: 'bold' }}>&#10007;</span>
+                                    <span style={{ color: 'red', fontWeight: 'bold', fontSize: '1.2rem' }}><BiX /></span>
                                   )}
                                 </div>
                               </div>
@@ -428,7 +456,7 @@ export default function AvalonGame() {
           <div className="card-header">
             <div className="d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Current Round</h5>
-              <button className="btn btn-success" onClick={handleSubmitRound} disabled={!currentRound}>
+              <button className="btn btn-success" onClick={() => { handleSubmitRound(); handleTimerReset(); }} disabled={!currentRound}>
                 Submit
               </button>
             </div>
