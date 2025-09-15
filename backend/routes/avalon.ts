@@ -482,6 +482,29 @@ router.post("/game/:game_id/submit_round", async (req: Request, res: Response) =
   }
 });
 
+router.post("/game/:game_id/attempt_archival", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    if (await getGameOutcome(game_id) !== 0) {
+      await prisma.game.update({
+        where: { id: game_id },
+        data: { active: false },
+      });
+      console.log("Game archived");
+      res.json({ message: "Game archived", redirect: `/avalon/game/${game_id}` });
+    } else {
+      console.log("Game not over yet");
+      res.status(400).json({ error: "Game is not in a terminal state" });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to archive game" });
+  }
+});
+
 async function getRoundOutcome(round: Round) {
   const roundPlayers = await prisma.roundPlayer.findMany({
     where: { roundId: round.id }
