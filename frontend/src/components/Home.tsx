@@ -1,7 +1,11 @@
 import React from "react";
 import { Link } from "react-router-dom";
 
+import { useTheme } from "../ThemeContext";
+
 export default function Home() {
+  const { theme, toggleTheme, notTheme } = useTheme();
+
   return (
     <div className="container-fluid">
       <div className="accordion my-2" id="changelogAccordion">
@@ -21,7 +25,12 @@ export default function Home() {
 
       <h1 className="d1 text-center">Joan's Personal Website!</h1>
       <div className="container">
-        <h1>Purpose</h1>
+        <div className="d-flex justify-content-between align-items-center">
+          <h1>Purpose</h1>
+          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
+            {theme === "light" ? "Dark Mode" : "Light Mode"}
+          </button>
+        </div>
         <p>
           This will almost certainly just hold whatever I want it to. With any luck, this index site will keep any
           relevant links and directory structure for quick access to whatever you're here for!
