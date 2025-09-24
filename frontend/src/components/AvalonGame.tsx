@@ -189,6 +189,18 @@ export default function AvalonGame() {
     }
   };
 
+  const forceArchive = async () => {
+    if (!game_id) return;
+    const res = await fetch(`/api/avalon/game/${game_id}/force_archive`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    });
+    const data = await res.json();
+    if (data.redirect) {
+      window.location.href = data.redirect;
+    }
+  };
+
   // Timer state and logic
   const TIMER_DEFAULT = 180; // 3 minutes in seconds
   const [timer, setTimer] = useState<number>(TIMER_DEFAULT);
@@ -283,7 +295,10 @@ export default function AvalonGame() {
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
           <div className="d-flex align-items-center gap-3">
             {DEBUG && (
-              <button className={`btn btn-outline-${notTheme()}`} onClick={() => attemptArchival()}>Archive</button>
+              <>
+                <button className="btn btn-outline-danger" onClick={() => forceArchive()}>Force Achive</button>
+                <button className={`btn btn-outline-${notTheme()}`} onClick={() => attemptArchival()}>Attempt to Archive</button>
+              </>
             )}
             {/* TODO: This should actually go back to setup (remove quests?) though that's non-trivial so this is easier for now */}
             <button className={`btn btn-outline-${notTheme()}`} onClick={() => handleNewGameSamePlayers()}>
