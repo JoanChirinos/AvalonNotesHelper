@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { BiCheck, BiChevronUp, BiChevronDown, BiPlayCircle, BiPauseCircle, BiRevision, BiSolidGrid, BiX } from "react-icons/bi";
 
+import { useTheme } from "../ThemeContext";
 import "./Components.css";
 
 interface RoundPlayer {
@@ -37,6 +38,8 @@ const DEBUG = false;
 
 export default function AvalonGame() {
   const { game_id } = useParams();
+
+  const { theme, toggleTheme, notTheme } = useTheme();
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -275,19 +278,22 @@ export default function AvalonGame() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md navbar-dark bg-dark">
+      <nav className="navbar navbar-expand-md border-bottom">
         <div className="container-fluid d-flex justify-content-between">
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
           <div className="d-flex align-items-center gap-3">
             {DEBUG && (
-              <button className="btn btn-outline-light" onClick={() => attemptArchival()}>Archive</button>
+              <button className={`btn btn-outline-${notTheme()}`} onClick={() => attemptArchival()}>Archive</button>
             )}
             {/* TODO: This should actually go back to setup (remove quests?) though that's non-trivial so this is easier for now */}
-            <button className="btn btn-outline-light" onClick={() => handleNewGameSamePlayers()}>
+            <button className={`btn btn-outline-${notTheme()}`} onClick={() => handleNewGameSamePlayers()}>
               Again!
             </button>
-            <button className="btn btn-outline-light" onClick={() => setDetailedView(!detailedView)}>
+            <button className={`btn btn-outline-${notTheme()}`} onClick={() => setDetailedView(!detailedView)}>
               {detailedView ? "Hide Non-terminal Rounds" : "Show Non-terminal Rounds"}
+            </button>
+            <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
+              {theme === "light" ? "Dark Mode" : "Light Mode"}
             </button>
           </div>
         </div>
@@ -484,7 +490,7 @@ export default function AvalonGame() {
             <div className="d-flex flex-wrap">
               {players.map(p => (
                 <div
-                  className={`card me-2 mb-2 selectable-card ${p.id === currentRound?.king ? "bg-info" : ""}`}
+                  className={`card me-2 mb-2 selectable-card ${p.id === currentRound?.king ? "bg-info text-dark" : ""}`}
                   key={p.id}
                   style={{ cursor: "pointer" }}
                   onClick={() => handleKingChange(p.id)}

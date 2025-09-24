@@ -24,7 +24,18 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>React App</title>
+    <title>Joan's Stuff</title>
+    <script>
+      const setTheme = () => {
+        const savedTheme = localStorage.getItem('theme');
+        const theme = savedTheme || (window.matchMedia("(prefers-color-scheme: dark)").matches ? 'dark' : 'light') || 'light';
+        if (!savedTheme) {
+          localStorage.setItem('theme', theme);
+        }
+        document.documentElement.setAttribute('data-bs-theme', theme);
+      }
+      setTheme();
+    </script>
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

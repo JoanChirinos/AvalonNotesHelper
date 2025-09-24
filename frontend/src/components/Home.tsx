@@ -8,20 +8,12 @@ export default function Home() {
         <div className="accordion-item">
           <h2 className="accordion-header">
             <button className="accordion-button bg-success text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#changelog" aria-expanded="false" aria-controls="changelog">
-              Avalon Notes Helper 2.2.0 out now!
+              Avalon Notes Helper 2.2.1 out now!
             </button>
           </h2>
           <div id="changelog" className="accordion-collapse collapse bg-body border-start border-end border-bottom" data-bs-parent="#changelogAccordion">
             <div className="accordion-body">
-              <span className="fw-bold">Implemented game archival; UI and game state management improvements</span>
-              <ul className="list-group list-group-flush">
-                <li className="list-group-item text-secondary">Games are now archived when completed, and can be viewed in read-only mode</li>
-                <li className="list-group-item text-secondary">Added "Again!" button to quickly start a new game with the same players</li>
-                <li className="list-group-item text-secondary">Each round's king is now the next player in the rotation; the first king is still random</li>
-                <li className="list-group-item text-secondary">Improved UI feedback for quest approvals/rejections with icons</li>
-                <li className="list-group-item text-secondary">Existing players are now auto-added when selected during game setup</li>
-                <li className="list-group-item text-secondary">Miscellaneous bug fixes and improvements</li>
-              </ul>
+              <span className="fw-bold">Added support for dark mode</span>
             </div>
           </div>
         </div>

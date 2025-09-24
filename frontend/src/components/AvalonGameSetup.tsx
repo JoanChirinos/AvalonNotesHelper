@@ -2,8 +2,13 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 
+import { useTheme } from "../ThemeContext";
+
 export default function AvalonGameSetup() {
   const { game_id } = useParams();
+
+  const { theme, toggleTheme, notTheme } = useTheme();
+
   const [validPlayers, setValidPlayers] = useState<{id: number, name: string, active: boolean}[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState("");
   const [newPlayerName, setNewPlayerName] = useState("");
@@ -95,9 +100,12 @@ export default function AvalonGameSetup() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md navbar-dark bg-dark">
+      <nav className="navbar navbar-expand-md border-bottom">
         <div className="container-fluid d-flex justify-content-between">
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
+          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
+            {theme === "light" ? "Dark Mode" : "Light Mode"}
+          </button>
         </div>
       </nav>
       <div className="container mt-3">
@@ -111,7 +119,7 @@ export default function AvalonGameSetup() {
               <form onSubmit={e => e.preventDefault()}>
                 <div className="row mb-2 align-items-end">
                   <div className="col-sm-3">
-                    <span className="btn btn-light disabled w-100 mb-0">Choose Player</span>
+                    <span className="btn border-0 disabled w-100 mb-0">Choose Player</span>
                   </div>
                   <div className="col-sm-7">
                     <select
@@ -131,7 +139,7 @@ export default function AvalonGameSetup() {
               <form onSubmit={addNewPlayer}>
                 <div className="row mb-2 align-items-end">
                   <div className="col-sm-3">
-                    <label htmlFor="new-player-name" className="btn btn-light disabled w-100 mb-0">New player</label>
+                    <label htmlFor="new-player-name" className="btn border-0 disabled w-100 mb-0">New player</label>
                   </div>
                   <div className="col-sm-7">
                     <input

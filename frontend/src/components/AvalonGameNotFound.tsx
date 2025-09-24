@@ -1,9 +1,12 @@
 import { useEffect } from "react";
 import { Link, useParams } from "react-router-dom";
 
+import { useTheme } from "../ThemeContext";
 
 export default function AvalonGameNotFound() {
   const { game_id } = useParams();
+
+  const { theme, toggleTheme, notTheme } = useTheme();
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -14,9 +17,12 @@ export default function AvalonGameNotFound() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md navbar-dark bg-dark">
+      <nav className="navbar navbar-expand-md border-bottom">
         <div className="container-fluid d-flex justify-content-between">
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
+          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
+            {theme === "light" ? "Dark Mode" : "Light Mode"}
+          </button>
         </div>
       </nav>
       <main className="container-fluid mt-3" style={{ maxWidth: "80%" }}>

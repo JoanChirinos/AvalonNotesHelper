@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 
 import { BiCheck, BiX } from "react-icons/bi";
 
+import { useTheme } from "../ThemeContext";
 import "./Components.css";
 
 interface RoundPlayer {
@@ -35,6 +36,8 @@ interface Player {
 
 export default function AvalonGameArchived() {
   const { game_id } = useParams();
+
+  const { theme, toggleTheme, notTheme } = useTheme();
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -123,16 +126,19 @@ export default function AvalonGameArchived() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md navbar-dark bg-dark">
+      <nav className="navbar navbar-expand-md border-bottom">
         <div className="container-fluid d-flex justify-content-between">
           <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
           <div className="d-flex align-items-center gap-3">
-            <button className="btn btn-outline-light" onClick={() => handleNewGameSamePlayers()}>
+            <button className={`btn btn-outline-${notTheme()}`} onClick={() => handleNewGameSamePlayers()}>
               Again!
             </button>
-            <button className="btn btn-outline-light" onClick={() => setDetailedView(!detailedView)}>
+            <button className={`btn btn-outline-${notTheme()}`} onClick={() => setDetailedView(!detailedView)}>
               {detailedView ? "Hide Non-terminal Rounds" : "Show Non-terminal Rounds"}
             </button>
+          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
+            {theme === "light" ? "Dark Mode" : "Light Mode"}
+          </button>
           </div>
         </div>
       </nav>
