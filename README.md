@@ -14,17 +14,14 @@ After cloning the repo, run the following commands in each directory:
 	```
 2. Then run:
 	```sh
-	npm install
-	npx prisma migrate dev --name init
-	npx prisma generate
-	npm start
+	npm run setup
 	```
 
 ### Frontend
 ```sh
 cd frontend
-npm install
-npm start
+npm run setup
+npm run start
 ```
 
 ## Usage
