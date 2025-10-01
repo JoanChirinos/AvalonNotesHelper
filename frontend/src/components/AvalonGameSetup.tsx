@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 
 import { useTheme } from "../ThemeContext";
+import AvalonNav from "./AvalonNav";
 
 export default function AvalonGameSetup() {
   const { game_id } = useParams();
@@ -100,14 +101,7 @@ export default function AvalonGameSetup() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md border-bottom">
-        <div className="container-fluid d-flex justify-content-between">
-          <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
-          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
-            {theme === "light" ? "Dark Mode" : "Light Mode"}
-          </button>
-        </div>
-      </nav>
+      <AvalonNav />
       <div className="container mt-3">
         <h2 className="mb-3">Game Setup</h2>
         <div className="card mb-4">

@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 import { useTheme } from "../ThemeContext";
 import { fetchGames, Game } from "../api/gamesApi";
 
+import AvalonNav from "./AvalonNav";
+
 
 export default function Avalon() {
   const { theme, toggleTheme, notTheme } = useTheme();
@@ -35,14 +37,7 @@ export default function Avalon() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md border-bottom" data-bs-theme={theme}>
-        <div className="container-fluid d-flex justify-content-between">
-          <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
-          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
-            {theme === "light" ? "Dark Mode" : "Light Mode"}
-          </button>
-        </div>
-      </nav>
+      <AvalonNav />
       <main className="container mt-3">
         <div className="row justify-content-center">
           <div className="col-md-8">

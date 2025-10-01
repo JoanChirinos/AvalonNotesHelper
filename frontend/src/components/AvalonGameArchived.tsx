@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from "react";
+import AvalonTimer from "./AvalonTimer";
 import { Link, useParams } from "react-router-dom";
 
 import { BiCheck, BiX } from "react-icons/bi";
 
 import { useTheme } from "../ThemeContext";
 import "./Components.css";
+import AvalonNav from "./AvalonNav";
 
 interface RoundPlayer {
   id: number;
@@ -42,6 +44,8 @@ export default function AvalonGameArchived() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
+  // Timer state for AvalonTimer
+  const [timerDefault, setTimerDefault] = useState<number>(120); // 2 minutes in seconds
 
   const [detailedView, setDetailedView] = useState<boolean>(true);
 
@@ -126,23 +130,19 @@ export default function AvalonGameArchived() {
 
   return (
     <>
-      <nav className="navbar navbar-expand-md border-bottom">
-        <div className="container-fluid d-flex justify-content-between">
-          <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
-          <div className="d-flex align-items-center gap-3">
-            <button className={`btn btn-outline-${notTheme()}`} onClick={() => handleNewGameSamePlayers()}>
-              Again!
-            </button>
-            <button className={`btn btn-outline-${notTheme()}`} onClick={() => setDetailedView(!detailedView)}>
-              {detailedView ? "Hide Non-terminal Rounds" : "Show Non-terminal Rounds"}
-            </button>
-          <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
-            {theme === "light" ? "Dark Mode" : "Light Mode"}
-          </button>
-          </div>
-        </div>
-      </nav>
-      <main className="container-fluid mt-3" style={{ maxWidth: "80%" }}>
+      <AvalonTimer
+        timerDefault={timerDefault}
+        setTimerDefault={setTimerDefault}
+        autoRestartKey={currentRound?.id}
+      />
+      <AvalonNav
+        useModal={true}
+        onAgain={handleNewGameSamePlayers}
+        onToggleDetailedView={() => setDetailedView(!detailedView)}
+        detailedView={detailedView}
+        showDarkModeToggle={true}
+      />
+      <main className="container-fluid mt-3" style={{ maxWidth: "90%" }}>
         <div className="d-flex flex-wrap justify-content-around">
           {quests.map(quest => (
             <div key={quest.id} className="card mb-3 shadow-sm mx-2" style={{ width: "auto", flex: "0 1 auto" }}>

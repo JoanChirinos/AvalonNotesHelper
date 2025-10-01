@@ -1,9 +1,9 @@
-import React, { useEffect, useState, useRef } from "react";
-import { Link, useParams } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
+import { BiCheck, BiSolidWrench, BiX } from "react-icons/bi";
+import AvalonNav from "./AvalonNav";
+import AvalonTimer from "./AvalonTimer";
 
-import { BiCheck, BiChevronUp, BiChevronDown, BiPlayCircle, BiPauseCircle, BiRevision, BiSolidGrid, BiX } from "react-icons/bi";
-
-import { useTheme } from "../ThemeContext";
 import "./Components.css";
 
 interface RoundPlayer {
@@ -39,7 +39,7 @@ const DEBUG = false;
 export default function AvalonGame() {
   const { game_id } = useParams();
 
-  const { theme, toggleTheme, notTheme } = useTheme();
+  // const { theme, toggleTheme, notTheme } = useTheme();
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -201,167 +201,134 @@ export default function AvalonGame() {
     }
   };
 
-  // Timer state and logic
-  const TIMER_DEFAULT = 180; // 3 minutes in seconds
-  const [timer, setTimer] = useState<number>(TIMER_DEFAULT);
-  const [timerActive, setTimerActive] = useState<boolean>(false);
-  const [timerPos, setTimerPos] = useState<{ x: number; y: number }>({ x: window.innerWidth - 255, y: 65 });
-  const [dragging, setDragging] = useState<boolean>(false);
-  const dragOffset = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
-  const timerRef = useRef<HTMLDivElement>(null);
 
-  // For chevron controls
-  const handleAddMinute = () => setTimer(t => t + 60);
-  const handleSubtractMinute = () => setTimer(t => (t >= 60 ? t - 60 : 0));
+  // Timer state for AvalonTimer
+  const [timerDefault, setTimerDefault] = useState<number>(180); // 3 minutes in seconds
 
-  // Play a sine wave beep when timer reaches 0
-  const playBeep = () => {
-    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = ctx.createOscillator();
-    oscillator.type = "sine";
-    oscillator.frequency.value = 880;
-    oscillator.connect(ctx.destination);
-    oscillator.start();
-    setTimeout(() => {
-      oscillator.stop();
-      ctx.close();
-    }, 2000);
-  };
+  async function handleRandomizeTeam(): Promise<void> {
+    if (!currentRound || !game_id) return;
+    const count = Number((document.querySelector('#random-team-count') as HTMLInputElement)?.value) || 2
 
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (timerActive && timer > 0) {
-      interval = setInterval(() => {
-        setTimer(prev => {
-          if (prev === 1) playBeep();
-          return prev > 0 ? prev - 1 : 0;
+    const playerIds = currentRound.roundPlayers.map(rp => rp.playerId);
+    // Always include the king
+    const kingId = currentRound.king
+    const otherPlayerIds = playerIds.filter(id => id !== kingId);
+    const shuffled = [...otherPlayerIds].sort(() => Math.random() - 0.5);
+
+    // Pick the first `count - 1` as the team (since king is always included)
+    const teamIds = new Set([kingId, ...shuffled.slice(0, Math.max(0, count - 1))]);
+    // For each player, set their team status accordingly
+    for (const playerId of playerIds) {
+      const shouldBeOnTeam = teamIds.has(playerId);
+      const currentStatus = currentRound.roundPlayers.find(rp => rp.playerId === playerId)?.team;
+      if (currentStatus !== shouldBeOnTeam) {
+        await fetch(`/api/avalon/game/${game_id}/toggle_team_player`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ player_id: playerId, round_id: currentRound.id })
         });
-      }, 1000);
-    } else if (!timerActive && interval) {
-      clearInterval(interval);
+      }
     }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [timerActive, timer]);
+    fetchQuests();
+  }
 
-  const handleTimerStart = () => {
-    if (timer === 0) setTimer(TIMER_DEFAULT);
-    setTimerActive(true);
-  };
-  const handleTimerStop = () => setTimerActive(false);
-  const handleTimerReset = () => {
-    setTimerActive(false);
-    setTimer(TIMER_DEFAULT);
-  };
-  const formatTimer = (secs: number) => {
-    const m = Math.floor(secs / 60).toString().padStart(1, '0');
-    const s = (secs % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-  };
+  function handleRandomizeKing(): void {
+    if (!currentRound || !game_id) return;
+    const playerIds = currentRound.roundPlayers.map(rp => rp.playerId);
+    const randomIdx = Math.floor(Math.random() * playerIds.length);
+    const randomKingId = playerIds[randomIdx];
+    handleKingChange(randomKingId);
+  }
 
-  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
-    setDragging(true);
-    const rect = timerRef.current?.getBoundingClientRect();
-    dragOffset.current = {
-      x: e.clientX - (rect?.left ?? 0),
-      y: e.clientY - (rect?.top ?? 0)
+  type TeamApprovedOptions = { all?: boolean; includeSagar?: boolean };
+  
+  function handleTeamApproved(options?: TeamApprovedOptions): React.MouseEventHandler<HTMLButtonElement> {
+    return async (e) => {
+      e.preventDefault();
+      if (!currentRound || !game_id) return;
+  
+      const all = options?.all;
+      const includeSagar = options?.includeSagar;
+  
+      // Find Sagar (player named "Sagar"), if needed
+      let sagarId: number | undefined;
+      if (includeSagar) {
+        const sagar = players.find(p => p.name.toLowerCase() === "sagar b");
+        sagarId = sagar?.id;
+      }
+  
+      // Set approval for all players if "all" is true
+      for (const rp of currentRound.roundPlayers) {
+        let shouldApprove = false;
+        if (all) {
+          shouldApprove = true;
+        } else {
+          const isTeam = rp.team;
+          const isSagar = (includeSagar ?? false) && rp.playerId === sagarId;
+          shouldApprove = isTeam || isSagar;
+        }
+        if (rp.approval !== shouldApprove) {
+          await fetch(`/api/avalon/game/${game_id}/toggle_votes`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ player_id: rp.playerId, round_id: currentRound.id })
+          });
+        }
+      }
+      fetchQuests();
     };
-  };
-
-  useEffect(() => {
-    if (!dragging) return;
-    const handleMouseMove = (e: MouseEvent) => {
-      setTimerPos({
-        x: e.clientX - dragOffset.current.x,
-        y: e.clientY - dragOffset.current.y
-      });
-    };
-    const handleMouseUp = () => {
-      setDragging(false);
-    };
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [dragging]);
-
+  }
+  
   return (
     <>
-      <nav className="navbar navbar-expand-md border-bottom">
-        <div className="container-fluid d-flex justify-content-between">
-          <Link className="navbar-brand" to="/avalon">Avalon Notes Helper</Link>
-          <div className="d-flex align-items-center gap-3">
-            {DEBUG && (
-              <>
-                <button className="btn btn-outline-danger" onClick={() => forceArchive()}>Force Achive</button>
-                <button className={`btn btn-outline-${notTheme()}`} onClick={() => attemptArchival()}>Attempt to Archive</button>
-              </>
-            )}
-            {/* TODO: This should actually go back to setup (remove quests?) though that's non-trivial so this is easier for now */}
-            <button className={`btn btn-outline-${notTheme()}`} onClick={() => handleNewGameSamePlayers()}>
-              Again!
-            </button>
-            <button className={`btn btn-outline-${notTheme()}`} onClick={() => setDetailedView(!detailedView)}>
-              {detailedView ? "Hide Non-terminal Rounds" : "Show Non-terminal Rounds"}
-            </button>
-            <button className={`btn btn-outline-${notTheme()}`} onClick={toggleTheme}>
-              {theme === "light" ? "Dark Mode" : "Light Mode"}
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Draggable Timer */}
-      <div
-        ref={timerRef}
-        style={{
-          position: "fixed",
-          left: timerPos.x,
-          top: timerPos.y,
-          zIndex: 9999,
-          cursor: dragging ? "grabbing" : "grab",
-          userSelect: "none",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.2)",
-          background: "#222",
-          borderRadius: "8px",
-          padding: "8px 12px"
-        }}
-        onMouseDown={handleDragStart}
-      >
-        <div className="d-flex align-items-center">
-          <button className="btn btn-outline-light border-0 px-0 disabled">
-            <BiSolidGrid size={18} />
-          </button>
-          <div className="d-flex align-items-center me-2">
-            <div className="d-flex flex-column align-items-center justify-content-center me-2">
-              <div className="d-flex flex-column justify-content-center" style={{ height: '32px' }}>
-                <button className="btn btn-outline-secondary btn-sm p-0 border-0" style={{ height: '16px', width: '28px', minWidth: '28px', lineHeight: 1 }} onClick={handleAddMinute} aria-label="Add minute">
-                  <BiChevronUp size={14} color="currentColor" />
-                </button>
-                <button className="btn btn-outline-secondary btn-sm p-0 border-0" style={{ height: '16px', width: '28px', minWidth: '28px', lineHeight: 1 }} onClick={handleSubtractMinute} aria-label="Subtract minute">
-                  <BiChevronDown size={14} color="currentColor" />
-                </button>
+      <div className="modal fade" id="roundToolsModal" tabIndex={-1} aria-labelledby="roundToolsModalLabel" aria-hidden="true">
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title" id="roundToolsModalLabel">Tools</h5>
+              <button type="button" className="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div className="modal-body">
+              <div className="vstack gap-2">
+                <div className="hstack gap-2 justify-content-end border-bottom pb-2">
+                  <button className="btn btn-secondary" data-bs-dismiss="modal" onClick={() => handleRandomizeKing()}>Randomize King</button>
+                </div>
+                <div className="hstack gap-2 align-items-center justify-content-end border-bottom pb-2">
+                  <label htmlFor="random-team-count" className="ma-auto">Team Size</label>
+                  <input type="number" className="form-control" style={{maxWidth: '100px'}} min={2} max={currentRound?.roundPlayers.length ?? 2} defaultValue={2} id="random-team-count" />
+                  <button className="btn btn-secondary" data-bs-dismiss="modal" onClick={() => handleRandomizeTeam()}>Randomize Team</button>
+                </div>
+                <div className="hstack gap-2 justify-content-end">
+                  <label htmlFor="vote-tools" className="ma-auto">EZ Approvals</label>
+                  <div id="vote-tools">
+                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleTeamApproved()}>Team</button>
+                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleTeamApproved({ includeSagar: true })}>Team + Sagar</button>
+                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleTeamApproved({ all: true })}>All</button>
+                  </div>
+                </div>
               </div>
             </div>
-            <span className="btn btn-outline-secondary text-light btn" style={{ pointerEvents: "none" }}>{formatTimer(timer)}</span>
           </div>
-          <button className="btn btn-outline-light btn-sm border-0" onClick={handleTimerStart} disabled={timerActive && timer > 0}>
-            <BiPlayCircle size={18} />
-          </button>
-          <button className="btn btn-outline-light btn-sm border-0" onClick={handleTimerStop} disabled={!timerActive}>
-            <BiPauseCircle size={18} />
-          </button>
-          <button className="btn btn-outline-light btn-sm border-0" onClick={handleTimerReset}>
-            <BiRevision size={18} />
-          </button>
         </div>
       </div>
+      <AvalonNav
+        useModal={true}
+        showDebugButtons={DEBUG}
+        onForceArchive={forceArchive}
+        onAttemptArchival={attemptArchival}
+        onAgain={handleNewGameSamePlayers}
+        onToggleDetailedView={() => setDetailedView(!detailedView)}
+        detailedView={detailedView}
+        showDarkModeToggle={true}
+      />
 
+      <AvalonTimer
+        timerDefault={timerDefault}
+        setTimerDefault={setTimerDefault}
+        autoRestartKey={currentRound?.id}
+      />
 
-      <main className="container-fluid mt-3" style={{ maxWidth: "80%" }}>
+      <main className="container-fluid mt-3" style={{ maxWidth: "90%" }}>
         <div className="d-flex flex-wrap justify-content-around">
           {quests.map(quest => (
             <div key={quest.id} className="card mb-3 shadow-sm mx-2" style={{ width: "auto", flex: "0 1 auto" }}>
@@ -494,8 +461,14 @@ export default function AvalonGame() {
         <div className="card mb-3 shadow-sm">
           <div className="card-header">
             <div className="d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Current Round</h5>
-              <button className="btn btn-success" onClick={() => { handleSubmitRound(); handleTimerReset(); }} disabled={!currentRound}>
+              <div className="hstack gap-3">
+                <h5 className="mb-0">Current Round</h5>
+                <div className="vr"></div>
+                <button className="btn btn-warning" data-bs-toggle="modal" data-bs-target="#roundToolsModal">
+                  <BiSolidWrench size={20} />
+                </button>
+              </div>
+              <button className="btn btn-success" onClick={handleSubmitRound} disabled={!currentRound}>
                 Submit
               </button>
             </div>
