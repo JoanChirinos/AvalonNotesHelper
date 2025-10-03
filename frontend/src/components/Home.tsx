@@ -12,16 +12,15 @@ export default function Home() {
         <div className="accordion-item">
           <h2 className="accordion-header">
             <button className="accordion-button bg-success text-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#changelog" aria-expanded="false" aria-controls="changelog">
-              Avalon Notes Helper 2.3.0 out now!
+              Avalon Notes Helper 2.3.1 out now!
             </button>
           </h2>
           <div id="changelog" className="accordion-collapse collapse bg-body border-start border-end border-bottom" data-bs-parent="#changelogAccordion">
             <div className="accordion-body">
-              <span className="fw-bold">Added settings and tools</span>
+              <span className="fw-bold">Bug fixes and improvements</span>
               <ul>
-                <li>Moved game settings to a modal accessible via the gear icon in the top right.</li>
-                <li>Added round tools to randomize king and teams, as well as EZ approvals based on how voting tends to go.</li>
-                <li>Timer will now remember the last used duration for each round and auto-start after being manually started once.</li>
+                <li>Fixed a bug where randomize team button would not randomize correctly</li>
+                <li>Changed default timer to 2 minutes</li>
               </ul>
             </div>
           </div>

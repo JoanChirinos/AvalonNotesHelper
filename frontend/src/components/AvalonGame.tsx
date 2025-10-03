@@ -203,7 +203,7 @@ export default function AvalonGame() {
 
 
   // Timer state for AvalonTimer
-  const [timerDefault, setTimerDefault] = useState<number>(180); // 3 minutes in seconds
+  const [timerDefault, setTimerDefault] = useState<number>(120); // 2 minutes in seconds
 
   async function handleRandomizeTeam(): Promise<void> {
     if (!currentRound || !game_id) return;
@@ -213,7 +213,15 @@ export default function AvalonGame() {
     // Always include the king
     const kingId = currentRound.king
     const otherPlayerIds = playerIds.filter(id => id !== kingId);
-    const shuffled = [...otherPlayerIds].sort(() => Math.random() - 0.5);
+
+    // Shuffle other players using Fisher-Yates algorithm
+    const shuffled = [...otherPlayerIds];
+    console.log(shuffled);
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    console.log(shuffled);
 
     // Pick the first `count - 1` as the team (since king is always included)
     const teamIds = new Set([kingId, ...shuffled.slice(0, Math.max(0, count - 1))]);
@@ -240,9 +248,9 @@ export default function AvalonGame() {
     handleKingChange(randomKingId);
   }
 
-  type TeamApprovedOptions = { all?: boolean; includeSagar?: boolean };
+  type EzApprovalOptions = { all?: boolean; includeSagar?: boolean };
   
-  function handleTeamApproved(options?: TeamApprovedOptions): React.MouseEventHandler<HTMLButtonElement> {
+  function handleEzApprovals(options?: EzApprovalOptions): React.MouseEventHandler<HTMLButtonElement> {
     return async (e) => {
       e.preventDefault();
       if (!currentRound || !game_id) return;
@@ -301,9 +309,9 @@ export default function AvalonGame() {
                 <div className="hstack gap-2 justify-content-end">
                   <label htmlFor="vote-tools" className="ma-auto">EZ Approvals</label>
                   <div id="vote-tools">
-                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleTeamApproved()}>Team</button>
-                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleTeamApproved({ includeSagar: true })}>Team + Sagar</button>
-                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleTeamApproved({ all: true })}>All</button>
+                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleEzApprovals()}>Team</button>
+                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleEzApprovals({ includeSagar: true })}>Team + Sagar</button>
+                    <button className="btn btn-success ms-2" data-bs-dismiss="modal" onClick={handleEzApprovals({ all: true })}>All</button>
                   </div>
                 </div>
               </div>
