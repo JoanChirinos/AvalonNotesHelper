@@ -347,7 +347,7 @@ export default function AvalonGame() {
               </div>
               <div className="card-body">
                 {quest.rounds
-                  .filter((round, idx, arr) => {
+                  .filter((round, _arr) => {
                     // If last quest, include second to last round if exists
                     const isLastQuest = quest === quests.at(-1);
                     const isSecondToLastRound = isLastQuest && quest.rounds.length > 1 && round === quest.rounds.at(-2);
