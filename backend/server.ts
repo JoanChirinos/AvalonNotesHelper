@@ -57,5 +57,6 @@ if (process.env.PROD === "true") {
     res.end();
   }).listen(80, () => console.log("HTTP server redirecting to HTTPS"));
 } else {
-  app.listen(5000, () => console.log("Server running on port 5000"));
+  const port = process.env.PORT || 5001;
+  app.listen(port, () => console.log(`Server running on port ${port}`));
 }

@@ -168,11 +168,17 @@ router.post("/game/:game_id/players", async (req: Request, res: Response) => {
   const { game_id } = req.params;
   const { player_id, player_name } = req.body;
 
-  if (!game_id) {
-    return res.status(400).json({ error: "Missing game_id parameter" });
+  if (!game_id || typeof game_id !== 'string') {
+    return res.status(400).json({ error: "Missing or invalid game_id parameter" });
   }
   if (!player_id && !player_name) {
     return res.status(400).json({ error: "Missing player_id or player_name" });
+  }
+  if (player_name && (typeof player_name !== 'string' || player_name.trim().length === 0)) {
+    return res.status(400).json({ error: "Invalid player_name" });
+  }
+  if (player_id && (typeof player_id !== 'number' && typeof player_id !== 'string')) {
+    return res.status(400).json({ error: "Invalid player_id" });
   }
   
   // At this point, we have either a player_name or player_id, exclusive
