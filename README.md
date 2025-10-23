@@ -21,13 +21,13 @@ After cloning the repo, run the following commands in each directory:
 ```sh
 cd frontend
 npm run setup
-npm run start
+npm run dev
 ```
 
 ## Usage
 
-- The backend runs on [http://localhost:5000](http://localhost:5000)
-- The frontend runs on [http://localhost:3000](http://localhost:3000)
+- The backend runs on [http://localhost:5001](http://localhost:5001)
+- The frontend runs on [http://localhost:3001](http://localhost:3001)
 - API requests from the frontend are proxied to the backend automatically.
 
 ## Development Notes
@@ -74,4 +74,4 @@ This should start serving your Express app with HTTPS and redirecting HTTP. Node
 
 ---
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project uses Vite for fast development and building.

@@ -1,14 +1,12 @@
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { useTheme } from "../ThemeContext";
 import { fetchGames, Game } from "../api/gamesApi";
 
 import AvalonNav from "./AvalonNav";
 
 
 export default function Avalon() {
-  const { theme, toggleTheme, notTheme } = useTheme();
   const [games, setGames] = useState<Game[]>([]);
 
   useEffect(() => {

@@ -1,10 +1,9 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import AvalonTimer from "./AvalonTimer";
-import { Link, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import { BiCheck, BiX } from "react-icons/bi";
 
-import { useTheme } from "../ThemeContext";
 import "./Components.css";
 import AvalonNav from "./AvalonNav";
 
@@ -38,8 +37,6 @@ interface Player {
 
 export default function AvalonGameArchived() {
   const { game_id } = useParams();
-
-  const { theme, toggleTheme, notTheme } = useTheme();
 
   const [players, setPlayers] = useState<Player[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -153,7 +150,7 @@ export default function AvalonGameArchived() {
               </div>
               <div className="card-body">
                 {quest.rounds
-                  .filter((round, idx, arr) => {
+                  .filter((round, _arr) => {
                     // Exclude all but last rounds if not in detailed view
                     return detailedView || round === quest.rounds.at(-1);
                   })

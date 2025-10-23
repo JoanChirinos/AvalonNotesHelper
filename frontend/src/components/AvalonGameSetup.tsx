@@ -1,14 +1,11 @@
 
 import React, { useEffect, useState } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
-import { useTheme } from "../ThemeContext";
 import AvalonNav from "./AvalonNav";
 
 export default function AvalonGameSetup() {
   const { game_id } = useParams();
-
-  const { theme, toggleTheme, notTheme } = useTheme();
 
   const [validPlayers, setValidPlayers] = useState<{id: number, name: string, active: boolean}[]>([]);
   const [selectedPlayer, setSelectedPlayer] = useState("");
