@@ -1,10 +1,28 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { PrismaClient, type Quest, type Round } from "@prisma/client";
+import { PrismaClient, type Quest, type Round, RoleName } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
 const prisma = new PrismaClient();
 const router = Router();
+
+router.get("/roles", async (req: Request, res: Response) => {
+  try {
+    const roleDefs = await prisma.role.findMany({
+      orderBy: { id: "asc" },
+      select: { roleName: true, evil: true, displayName: true }
+    });
+    const roles = roleDefs.map(d => ({
+      value: d.roleName,
+      label: d.displayName,
+      evil: d.evil,
+    }));
+    res.json({ roles });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch roles" });
+  }
+});
 
 // POST /api/avalon/new_game - create a new game
 router.post("/new_game", async (req: Request, res: Response) => {
@@ -161,6 +179,196 @@ router.get("/game/:game_id/players", async (req: Request, res: Response) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch players" });
+  }
+});
+
+// GET /api/avalon/game/:game_id/roles - get single-instance roles and duplicate-role counts for a game
+router.get("/game/:game_id/roles", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const game = await prisma.game.findUnique({
+      where: { id: game_id },
+      include: { roles: true },
+    });
+    if (!game) return res.status(404).json({ error: "Game not found" });
+    const roles = (game.roles || []).map(r => r.roleName);
+    res.json({ roles, loyalServantCount: game.loyalServantCount ?? 0, minionCount: game.minionCount ?? 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch game roles" });
+  }
+});
+
+// POST /api/avalon/game/:game_id/roles - add a single-instance role to a game
+router.post("/game/:game_id/roles", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { roleName } = req.body;
+  if (!game_id) return res.status(400).json({ error: "Missing game_id parameter" });
+  if (!roleName || typeof roleName !== 'string') return res.status(400).json({ error: "Missing or invalid roleName" });
+  if (roleName === 'LOYAL_SERVANT' || roleName === 'MINION') {
+    return res.status(400).json({ error: "Use set_role_count to change counts for duplicate roles" });
+  }
+  try {
+    // Validate roleName against the RoleName enum
+    if (!Object.values(RoleName).includes(roleName as RoleName)) {
+      return res.status(400).json({ error: "Invalid roleName" });
+    }
+    // Resolve the role by enum and connect by id to avoid unsafe casts
+    const role = await prisma.role.findUnique({ where: { roleName: roleName as RoleName } });
+    if (!role) return res.status(400).json({ error: "Role not found" });
+    const updated = await prisma.game.update({
+      where: { id: game_id },
+      data: { roles: { connect: { id: role.id } } },
+      include: { roles: true },
+    });
+    const roles = (updated.roles || []).map(r => r.roleName);
+    res.json({ roles, loyalServantCount: updated.loyalServantCount ?? 0, minionCount: updated.minionCount ?? 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to add role to game" });
+  }
+});
+
+// POST /api/avalon/game/:game_id/remove_role - remove a single-instance role from a game
+router.post("/game/:game_id/remove_role", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { roleName } = req.body;
+  if (!game_id) return res.status(400).json({ error: "Missing game_id parameter" });
+  if (!roleName || typeof roleName !== 'string') return res.status(400).json({ error: "Missing or invalid roleName" });
+  if (roleName === 'LOYAL_SERVANT' || roleName === 'MINION') {
+    return res.status(400).json({ error: "Use set_role_count to change counts for duplicate roles" });
+  }
+  try {
+    // Validate requested roleName
+    if (!Object.values(RoleName).includes(roleName as RoleName)) {
+      return res.status(400).json({ error: "Invalid roleName" });
+    }
+    const role = await prisma.role.findUnique({ where: { roleName: roleName as RoleName } });
+    if (!role) return res.status(400).json({ error: "Role not found" });
+    const updated = await prisma.game.update({
+      where: { id: game_id },
+      data: { roles: { disconnect: { id: role.id } } },
+      include: { roles: true },
+    });
+    const roles = (updated.roles || []).map(r => r.roleName);
+    res.json({ roles, loyalServantCount: updated.loyalServantCount ?? 0, minionCount: updated.minionCount ?? 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to remove role from game" });
+  }
+});
+
+// POST /api/avalon/game/:game_id/set_role_count - set count for LOYAL_SERVANT or MINION
+router.post("/game/:game_id/set_role_count", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { roleName, count } = req.body;
+  if (!game_id) return res.status(400).json({ error: "Missing game_id parameter" });
+  if (!roleName || (roleName !== 'LOYAL_SERVANT' && roleName !== 'MINION')) return res.status(400).json({ error: "roleName must be LOYAL_SERVANT or MINION" });
+  if (typeof count !== 'number' || count < 0) return res.status(400).json({ error: "count must be a non-negative number" });
+  try {
+    const data: any = {};
+    if (roleName === 'LOYAL_SERVANT') data.loyalServantCount = count;
+    if (roleName === 'MINION') data.minionCount = count;
+    const updated = await prisma.game.update({
+      where: { id: game_id },
+      data,
+      include: { roles: true },
+    });
+    const roles = (updated.roles || []).map(r => r.roleName);
+    res.json({ roles, loyalServantCount: updated.loyalServantCount ?? 0, minionCount: updated.minionCount ?? 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to set role count" });
+  }
+});
+
+// GET /api/avalon/game/:game_id/assignments - fetch role assignments for players in a game
+router.get("/game/:game_id/assignments", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) return res.status(400).json({ error: "Missing game_id parameter" });
+  try {
+    const gamePlayers = await prisma.gamePlayer.findMany({
+      where: { gameId: game_id },
+      include: { player: true, role: true }
+    });
+    const assignments = gamePlayers.map(gp => ({
+      gamePlayerId: gp.id,
+      playerId: gp.playerId,
+      playerName: gp.player?.name ?? null,
+      roleName: gp.role ? gp.role.roleName : null,
+    }));
+    const game = await prisma.game.findUnique({ where: { id: game_id } });
+    res.json({ assignments, loyalServantCount: game?.loyalServantCount ?? 0, minionCount: game?.minionCount ?? 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch assignments" });
+  }
+});
+
+// POST /api/avalon/game/:game_id/assign_role - assign or unassign a role to a game player
+// body: { gamePlayerId: number, roleName: string | null }
+router.post("/game/:game_id/assign_role", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  const { gamePlayerId, roleName } = req.body;
+  if (!game_id) return res.status(400).json({ error: "Missing game_id parameter" });
+  if (!gamePlayerId || typeof gamePlayerId !== 'number') return res.status(400).json({ error: "Missing or invalid gamePlayerId" });
+
+  try {
+    const game = await prisma.game.findUnique({ where: { id: game_id } });
+    if (!game) return res.status(404).json({ error: "Game not found" });
+
+    const gp = await prisma.gamePlayer.findUnique({ where: { id: gamePlayerId }, include: { role: true } });
+    if (!gp || gp.gameId !== game_id) return res.status(400).json({ error: "Invalid gamePlayerId for this game" });
+
+    // If roleName is null/undefined we interpret as unassign
+    if (roleName === null || roleName === undefined) {
+      const updated = await prisma.gamePlayer.update({ where: { id: gamePlayerId }, data: { role: { disconnect: true } }, include: { role: true, player: true } });
+      // return current assignments
+      const gamePlayers = await prisma.gamePlayer.findMany({ where: { gameId: game_id }, include: { player: true, role: true } });
+      const assignments = gamePlayers.map(g => ({ gamePlayerId: g.id, playerId: g.playerId, playerName: g.player?.name ?? null, roleName: g.role ? g.role.roleName : null }));
+      return res.json({ assignments, updated: { gamePlayerId: updated.id, roleName: null } });
+    }
+
+    // Validate roleName string
+    if (typeof roleName !== 'string') return res.status(400).json({ error: "roleName must be a string or null" });
+    if (!Object.values(RoleName).includes(roleName as RoleName)) return res.status(400).json({ error: "Invalid roleName" });
+
+    const role = await prisma.role.findUnique({ where: { roleName: roleName as RoleName } });
+    if (!role) return res.status(400).json({ error: "Role not found" });
+
+    // If role is LOYAL_SERVANT or MINION allow multiple but enforce game counts
+    if (role.roleName === 'LOYAL_SERVANT' || role.roleName === 'MINION') {
+      const maxCount = role.roleName === 'LOYAL_SERVANT' ? (game.loyalServantCount ?? 0) : (game.minionCount ?? 0);
+      // Count current assignments of this role in the game (excluding this gp if already assigned)
+      const currentCount = await prisma.gamePlayer.count({ where: { gameId: game_id, roleId: role.id } });
+      const alreadyAssignedToThis = gp.role?.id === role.id;
+      if (!alreadyAssignedToThis && currentCount >= maxCount) {
+        return res.status(400).json({ error: `Cannot assign ${roleName} — game allows ${maxCount} instances` });
+      }
+      // Connect the role
+      const updated = await prisma.gamePlayer.update({ where: { id: gamePlayerId }, data: { role: { connect: { id: role.id } } }, include: { role: true, player: true } });
+      const gamePlayers = await prisma.gamePlayer.findMany({ where: { gameId: game_id }, include: { player: true, role: true } });
+      const assignments = gamePlayers.map(g => ({ gamePlayerId: g.id, playerId: g.playerId, playerName: g.player?.name ?? null, roleName: g.role ? g.role.roleName : null }));
+      return res.json({ assignments, updated: { gamePlayerId: updated.id, roleName: updated.role?.roleName ?? null } });
+    }
+
+    // Single-instance roles: ensure not already assigned to another player in this game
+    const existing = await prisma.gamePlayer.findFirst({ where: { gameId: game_id, roleId: role.id } });
+    if (existing && existing.id !== gamePlayerId) {
+      return res.status(400).json({ error: `${roleName} is already assigned to another player` });
+    }
+
+    // Connect role to this gamePlayer
+    const updated = await prisma.gamePlayer.update({ where: { id: gamePlayerId }, data: { role: { connect: { id: role.id } } }, include: { role: true, player: true } });
+    const gamePlayers = await prisma.gamePlayer.findMany({ where: { gameId: game_id }, include: { player: true, role: true } });
+    const assignments = gamePlayers.map(g => ({ gamePlayerId: g.id, playerId: g.playerId, playerName: g.player?.name ?? null, roleName: g.role ? g.role.roleName : null }));
+    res.json({ assignments, updated: { gamePlayerId: updated.id, roleName: updated.role?.roleName ?? null } });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to assign role" });
   }
 });
 

@@ -45,6 +45,12 @@ export default function AvalonGameArchived() {
   const [timerDefault, setTimerDefault] = useState<number>(120); // 2 minutes in seconds
 
   const [detailedView, setDetailedView] = useState<boolean>(true);
+  // Role metadata and assignments (for post-game role assignment)
+  const [roleMap, setRoleMap] = useState<Record<string, { evil: boolean; label?: string }>>({});
+  const [assignments, setAssignments] = useState<Array<{ gamePlayerId: number; playerId: number; playerName: string | null; roleName: string | null }>>([]);
+  const [availableGameRoles, setAvailableGameRoles] = useState<string[]>([]);
+  const [loyalServantCount, setLoyalServantCount] = useState<number>(0);
+  const [minionCount, setMinionCount] = useState<number>(0);
 
   // Fetch players once when component mounts
   useEffect(() => {
@@ -103,6 +109,67 @@ export default function AvalonGameArchived() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game_id]);
 
+  // Fetch available role metadata (displayName + evil)
+  const fetchRoleMetadata = async () => {
+    try {
+      const res = await fetch('/api/avalon/roles');
+      if (!res.ok) return;
+      const data = await res.json();
+      const map: Record<string, { evil: boolean; label?: string }> = {};
+      (data.roles || []).forEach((r: any) => {
+        map[r.value] = { evil: !!r.evil, label: r.label || r.value };
+      });
+      setRoleMap(map);
+    } catch (err) {
+      console.error('Failed to fetch role metadata', err);
+    }
+  };
+
+  // Fetch roles that were selected for this game (so dropdown only shows roles present in the game)
+  const fetchGameRoles = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/roles`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const roles: string[] = (data.roles || []).filter((r: string) => r !== 'LOYAL_SERVANT' && r !== 'MINION');
+      const list = [...roles];
+      const lCount = Number(data.loyalServantCount ?? 0);
+      const mCount = Number(data.minionCount ?? 0);
+      setLoyalServantCount(lCount);
+      setMinionCount(mCount);
+      if (lCount > 0) list.push('LOYAL_SERVANT');
+      if (mCount > 0) list.push('MINION');
+      setAvailableGameRoles(list);
+    } catch (err) {
+      console.error('Failed to fetch game roles', err);
+    }
+  };
+
+  // Fetch current assignments for this game
+  const fetchAssignments = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/assignments`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setAssignments(data.assignments || []);
+    } catch (err) {
+      console.error('Failed to fetch assignments', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchRoleMetadata();
+    fetchAssignments();
+    fetchGameRoles();
+    const intervalA = setInterval(() => {
+      fetchAssignments();
+      fetchGameRoles();
+    }, 1000);
+    return () => clearInterval(intervalA);
+  }, [game_id]);
+
   const handleNewGameSamePlayers = async () => {
     const res = await fetch("/api/avalon/new_game", {
       method: "POST",
@@ -122,6 +189,27 @@ export default function AvalonGameArchived() {
       window.location.href = `/avalon/game/${newGameId}`;
     } else {
       alert("Failed to create new game.");
+    }
+  };
+
+  // Assign/unassign a role to a gamePlayer (live updates)
+  const assignRole = async (gamePlayerId: number, roleName: string | null) => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/assign_role`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gamePlayerId, roleName }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || 'Failed to assign role');
+        return;
+      }
+      await fetchAssignments();
+    } catch (err) {
+      console.error('assignRole error', err);
+      alert('Failed to assign role');
     }
   };
 
@@ -259,6 +347,94 @@ export default function AvalonGameArchived() {
             </div>
           ))}
         </div>
+
+        <div className="card mb-3">
+          <div className="card-header d-flex justify-content-between align-items-center">
+            <h5 className="mb-0">Role Assignment</h5>
+            <span className="badge bg-secondary">{assignments.length} Players</span>
+          </div>
+          <div className="card-body">
+            {assignments.length === 0 ? (
+              <div className="text-muted">No assignments yet.</div>
+            ) : (
+              (() => {
+                // Build ordered role slots: good single-instance, loyal servants, evil single-instance, minions
+                const singleGood = availableGameRoles.filter(r => r !== 'LOYAL_SERVANT' && r !== 'MINION' && !roleMap[r]?.evil);
+                const singleEvil = availableGameRoles.filter(r => r !== 'LOYAL_SERVANT' && r !== 'MINION' && !!roleMap[r]?.evil);
+                const slots: Array<{ key: string; roleName: string; label: string; evil: boolean } > = [];
+                singleGood.forEach(r => slots.push({ key: r, roleName: r, label: roleMap[r]?.label ?? r, evil: !!roleMap[r]?.evil }));
+                for (let i = 0; i < loyalServantCount; i++) {
+                  slots.push({ key: `LOYAL_SERVANT_${i}`, roleName: 'LOYAL_SERVANT', label: roleMap['LOYAL_SERVANT']?.label ?? 'Loyal Servant', evil: !!roleMap['LOYAL_SERVANT']?.evil });
+                }
+                singleEvil.forEach(r => slots.push({ key: r, roleName: r, label: roleMap[r]?.label ?? r, evil: !!roleMap[r]?.evil }));
+                for (let i = 0; i < minionCount; i++) {
+                  slots.push({ key: `MINION_${i}`, roleName: 'MINION', label: roleMap['MINION']?.label ?? 'Minion', evil: !!roleMap['MINION']?.evil });
+                }
+
+                // Map current assignments to slot selections (prefer matches in order)
+                const usedGamePlayerIds = new Set<number>();
+                const slotSelected: Array<number | null> = slots.map(s => {
+                  const found = assignments.find(a => a.roleName === s.roleName && !usedGamePlayerIds.has(a.gamePlayerId));
+                  if (found) {
+                    usedGamePlayerIds.add(found.gamePlayerId);
+                    return found.gamePlayerId;
+                  }
+                  return null;
+                });
+
+                return (
+                  <div className="d-flex flex-column">
+                    {slots.map((slot, idx) => (
+                      <div key={slot.key} className="d-flex align-items-center justify-content-center mb-2">
+                        <span className={`badge mx-e ${slot.evil ? 'bg-danger' : 'bg-success'}`} style={{ minWidth: '180px' }}>{slot.label}</span>
+                        <select
+                          className="form-select form-select-sm mx-2"
+                          value={slotSelected[idx] ?? ''}
+                          onChange={async (e) => {
+                            const val = e.target.value === '' ? null : Number(e.target.value);
+                            const prev = slotSelected[idx];
+                            try {
+                              if (val === null) {
+                                // unassign whoever was in this slot
+                                if (prev) await assignRole(prev, null);
+                                slotSelected[idx] = null;
+                                return;
+                              }
+
+                              // If this slot had a previous player, unassign them (unless it's the same as selected)
+                              if (prev && prev !== val) {
+                                await assignRole(prev, null);
+                              }
+
+                              // Now assign the selected player to this slot's role
+                              await assignRole(val, slot.roleName);
+                              slotSelected[idx] = val;
+                            } catch (err) {
+                              console.error('slot assignment error', err);
+                            }
+                          }}
+                        >
+                          <option value="">-- Unassigned --</option>
+                          {assignments
+                            .filter(a => a.roleName === null || a.gamePlayerId === slotSelected[idx])
+                            .map(a => (
+                              <option
+                                key={a.gamePlayerId}
+                                value={a.gamePlayerId}
+                              >
+                                {a.playerName ?? `Player ${a.playerId}`}
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        </div>
+
       </main>
     </>
   );

@@ -53,6 +53,8 @@ model Game {
   id         String       @id
   start_time DateTime
   active     Boolean      @default(true)
+  loyalServantCount Int @default(0)
+  minionCount       Int @default(0)
   players    GamePlayer[]
   quests     Quest[]
   roles      Role[]

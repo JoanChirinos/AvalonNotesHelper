@@ -44,6 +44,10 @@ export default function AvalonGame() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [currentRound, setCurrentRound] = useState<Round | null>(null);
+  // Roles state (single-instance role names and duplicate-role counts)
+  const [gameRoles, setGameRoles] = useState<string[]>([]);
+  // Map of role value -> { evil, label }
+  const [roleMap, setRoleMap] = useState<Record<string, { evil: boolean; label?: string }>>({});
 
   const [detailedView, setDetailedView] = useState<boolean>(true);
 
@@ -97,11 +101,40 @@ export default function AvalonGame() {
       });
   };
 
+  // Fetch game roles and counts
+  const fetchGameRoles = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/roles`);
+      if (!res.ok) return;
+      const data = await res.json();
+      const roles = (data.roles || []).filter((r: string) => r !== 'LOYAL_SERVANT' && r !== 'MINION');
+      setGameRoles(roles);
+
+      // Also fetch role metadata (evil flag + label) so we can render good/evil styling
+      try {
+        const metaRes = await fetch('/api/avalon/roles');
+        if (metaRes.ok) {
+          const meta = await metaRes.json();
+          const map: Record<string, { evil: boolean; label?: string }> = {};
+          (meta.roles || []).forEach((r: any) => {
+            map[r.value] = { evil: !!r.evil, label: r.label || r.value };
+          });
+          setRoleMap(map);
+        }
+      } catch (err) {
+        console.error('Failed to fetch role metadata', err);
+      }
+    } catch (err) {
+      console.error('Failed to fetch game roles', err);
+    }
+  };
+
   useEffect(() => {
+    fetchGameRoles();
     fetchQuests();
     const interval = setInterval(fetchQuests, 500);
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [game_id]);
 
   // Change king handler
@@ -465,6 +498,37 @@ export default function AvalonGame() {
               </div>
             </div>
           ))}
+        </div>
+        <div className="card mb-3">
+          <div className="card-body py-2">
+            {/* Roles: split into Good (green) and Evil (red) with a vertical rule between */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Good roles */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {gameRoles
+                  .filter(r => !(roleMap[r]?.evil))
+                  .map(r => (
+                    <span key={r} className="badge bg-success" style={{ fontSize: '0.8rem' }}>
+                      {roleMap[r]?.label ?? r}
+                    </span>
+                  ))}
+              </div>
+
+              {/* vertical rule */}
+              <div style={{ width: '1px', background: '#dee2e6', height: '22px' }} />
+
+              {/* Evil roles */}
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {gameRoles
+                  .filter(r => !!roleMap[r]?.evil)
+                  .map(r => (
+                    <span key={r} className="badge bg-danger" style={{ fontSize: '0.8rem' }}>
+                      {roleMap[r]?.label ?? r}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          </div>
         </div>
         <div className="card mb-3 shadow-sm">
           <div className="card-header">
