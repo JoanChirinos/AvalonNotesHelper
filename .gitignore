@@ -39,7 +39,7 @@ backend/prisma/migrations/migration_lock.toml
 backend/prisma/.env*
 
 # Exclude generated SQL migration files, but keep migration folders
-backend/db/prisma/migrations/*/*.sql
+backend/prisma/migrations/**/*.sql
 
 # Do NOT exclude the prisma directory or schema.prisma!
 
