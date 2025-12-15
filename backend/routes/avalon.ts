@@ -529,7 +529,7 @@ router.post("/game/:game_id/force_archive", async (req: Request, res: Response) 
   }
 });
 
-async function getRoundOutcome(round: Round) {
+async function getRoundOutcome(round: Round, requiredFails: number = 1) {
   const roundPlayers = await prisma.roundPlayer.findMany({
     where: { roundId: round.id }
   });
@@ -538,17 +538,19 @@ async function getRoundOutcome(round: Round) {
   if (round.fails === 0 && approvalVotes > playerCount / 2) {
     return 1;
   }
-  if (round.fails > 0) {
+  if (round.fails >= requiredFails) {
     return -1;
   }
   return 0;
 }
 
-async function getQuestOutcome(quest: Quest) {
+async function getQuestOutcome(quest: Quest, questIndex: number, gamePlayerCount: number) {
   const rounds = await prisma.round.findMany({
     where: { questId: quest.id }
   });
-  const outcomes = await Promise.all(rounds.map(getRoundOutcome));
+  const isFourthQuest = questIndex === 3;
+  const requiredFails = gamePlayerCount >= 7 && isFourthQuest ? 2 : 1;
+  const outcomes = await Promise.all(rounds.map(round => getRoundOutcome(round, requiredFails)));
   if (outcomes.includes(1)) return 1;
   if (outcomes.includes(-1)) return -1;
   return 0;
@@ -558,7 +560,11 @@ async function getGameOutcome(gameId: string) {
   const quests = await prisma.quest.findMany({
     where: { gameId },
   });
-  const outcomes = await Promise.all(quests.map(getQuestOutcome));
+  const gamePlayerCout = await prisma.gamePlayer.count({
+    where: { gameId },
+  });
+  const gamePlayerCount = gamePlayerCout;
+  const outcomes = await Promise.all(quests.map((q, idx) => getQuestOutcome(q, idx, gamePlayerCount)));
   const successCount = outcomes.filter(o => o === 1).length;
   const failCount = outcomes.filter(o => o === -1).length;
   if (successCount >= 3) return 1;
