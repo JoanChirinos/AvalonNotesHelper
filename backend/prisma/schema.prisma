@@ -10,60 +10,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum RoleName {
+  MERLIN
+  PERCIVAL
+  LOYAL_SERVANT
+  MORDRED
+  MORGANA
+  ASSASSIN
+  MINION
+  UNTRUSTWORTHY
+  TROUBLEMAKER
+  TRICKSTER
+  CLERIC
+  GOOD_SORCERER
+  EVIL_SORCERER
+  SENIOR_MESSENGER
+  JUNIOR_MESSENGER
+  EVIL_MESSENGER
+  GOOD_LANCELOT
+  EVIL_LANCELOT
+  OBERON
+  LUNATIC
+  BRUTE
+  REVEALER
+  GOOD_ROGUE
+  EVIL_ROGUE
+}
+
 // active && quests.length == 0 -> setup stage
 // active && quests.length > 0 -> in-play stage
 // !active -> archived
 model Game {
-  id         String   @id
+  id         String       @id
   start_time DateTime
-  active     Boolean  @default(true)
+  active     Boolean      @default(true)
   players    GamePlayer[]
   quests     Quest[]
+  roles      GameRole[]
 }
 
 model Player {
-  id      Int      @id @default(autoincrement())
-  name    String
-  active  Boolean @default(true)
-  games   GamePlayer[]
-  rounds  RoundPlayer[]
-  kingRounds Round[] @relation("KingPlayer")
+  id         Int           @id @default(autoincrement())
+  name       String
+  active     Boolean       @default(true)
+  games      GamePlayer[]
+  rounds     RoundPlayer[]
+  kingRounds Round[]       @relation("KingPlayer")
 }
 
 model Quest {
-  id      Int      @id @default(autoincrement())
-  game    Game     @relation(fields: [gameId], references: [id])
-  gameId  String
-  rounds  Round[]
+  id     Int     @id @default(autoincrement())
+  game   Game    @relation(fields: [gameId], references: [id])
+  gameId String
+  rounds Round[]
 }
 
 model Round {
-  id        Int      @id @default(autoincrement())
-  quest     Quest    @relation(fields: [questId], references: [id])
-  questId   Int
-  king      Int
-  kingPlayer Player? @relation("KingPlayer", fields: [king], references: [id])
-  fails     Int
+  id           Int           @id @default(autoincrement())
+  quest        Quest         @relation(fields: [questId], references: [id])
+  questId      Int
+  king         Int
+  kingPlayer   Player?       @relation("KingPlayer", fields: [king], references: [id])
+  fails        Int
   roundPlayers RoundPlayer[]
 }
 
-// Players in a game
+// Player in a game
 model GamePlayer {
-  id        Int    @id @default(autoincrement())
-  game      Game   @relation(fields: [gameId], references: [id])
-  gameId    String
-  player    Player @relation(fields: [playerId], references: [id])
-  playerId  Int
-  role      String  @default("")
+  id       Int       @id @default(autoincrement())
+  game     Game      @relation(fields: [gameId], references: [id])
+  gameId   String
+  player   Player    @relation(fields: [playerId], references: [id])
+  playerId Int
+  role     GameRole? @relation("AssignedRole")
+}
+
+// Role in a game
+model GameRole {
+  id       Int         @id @default(autoincrement())
+  game     Game        @relation(fields: [gameId], references: [id])
+  gameId   String
+  roleName RoleName
+  player   GamePlayer? @relation("AssignedRole", fields: [playerId], references: [id])
+  playerId Int?        @unique
 }
 
 // Players in a round
 model RoundPlayer {
-  id        Int    @id @default(autoincrement())
-  round     Round  @relation(fields: [roundId], references: [id])
-  roundId   Int
-  player    Player @relation(fields: [playerId], references: [id])
-  playerId  Int
-  team      Boolean
-  approval  Boolean
+  id       Int     @id @default(autoincrement())
+  round    Round   @relation(fields: [roundId], references: [id])
+  roundId  Int
+  player   Player  @relation(fields: [playerId], references: [id])
+  playerId Int
+  team     Boolean
+  approval Boolean
 }
