@@ -37,6 +37,15 @@ enum RoleName {
   EVIL_ROGUE
 }
 
+model Role {
+  id          Int          @id @default(autoincrement())
+  roleName    RoleName     @unique
+  displayName String
+  evil        Boolean
+  games       Game[]
+  gamePlayers GamePlayer[]
+}
+
 // active && quests.length == 0 -> setup stage
 // active && quests.length > 0 -> in-play stage
 // !active -> archived
@@ -46,7 +55,7 @@ model Game {
   active     Boolean      @default(true)
   players    GamePlayer[]
   quests     Quest[]
-  roles      GameRole[]
+  roles      Role[]
 }
 
 model Player {
@@ -77,22 +86,13 @@ model Round {
 
 // Player in a game
 model GamePlayer {
-  id       Int       @id @default(autoincrement())
-  game     Game      @relation(fields: [gameId], references: [id])
+  id       Int    @id @default(autoincrement())
+  game     Game   @relation(fields: [gameId], references: [id])
   gameId   String
-  player   Player    @relation(fields: [playerId], references: [id])
+  player   Player @relation(fields: [playerId], references: [id])
   playerId Int
-  role     GameRole? @relation("AssignedRole")
-}
-
-// Role in a game
-model GameRole {
-  id       Int         @id @default(autoincrement())
-  game     Game        @relation(fields: [gameId], references: [id])
-  gameId   String
-  roleName RoleName
-  player   GamePlayer? @relation("AssignedRole", fields: [playerId], references: [id])
-  playerId Int?        @unique
+  role     Role?  @relation(fields: [roleId], references: [id])
+  roleId   Int?
 }
 
 // Players in a round

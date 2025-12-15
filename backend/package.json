@@ -6,9 +6,10 @@
   "scripts": {
     "dev": "nodemon --watch 'routes/*.ts' --exec 'node --import tsx/esm' server.ts",
     "build": "tsc",
-    "setup": "npm install && npx prisma migrate dev --name init && npx prisma generate",
+    "setup": "npm install && npx prisma migrate dev --name init && npx prisma generate && npm run db:seed",
     "start": "node dist/server.js",
-    "prisma": "prisma"
+    "prisma": "prisma",
+    "db:seed": "ts-node --prefer-ts-exts prisma/seed.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.15.0",
