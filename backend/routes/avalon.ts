@@ -1,6 +1,6 @@
 import { Router } from "express";
 import type { Request, Response } from "express";
-import { PrismaClient, type Quest, type Round, RoleName } from "@prisma/client";
+import { PrismaClient, type Quest, type Round, RoleName, type Game } from "@prisma/client";
 import { v4 as uuidv4 } from "uuid";
 
 const prisma = new PrismaClient();
@@ -34,6 +34,9 @@ router.post("/new_game", async (req: Request, res: Response) => {
         id: gameId,
         start_time: startTime,
         active: true,
+        merlinSniped: false,
+        messengersSniped: false,
+        untrustworthySniped: false,
       },
     });
     res.json({ game: newGame });
@@ -737,6 +740,107 @@ router.post("/game/:game_id/force_archive", async (req: Request, res: Response) 
   }
 });
 
+router.post("/game/:game_id/toggle_merlin_snipe", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const newValue = await toggleGameField(game_id, "merlinSniped");
+    return res.status(200).json({ 
+      message: "Merlin snipe toggled", 
+      value: newValue 
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to toggle Merlin snipe" });
+  }
+});
+
+router.post("/game/:game_id/toggle_messengers_snipe", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const newValue = await toggleGameField(game_id, "messengersSniped");
+    return res.status(200).json({ 
+      message: "Messengers snipe toggled", 
+      value: newValue 
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to toggle Messenger snipe" });
+  }
+});
+
+router.post("/game/:game_id/toggle_untrustworthy_snipe", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const newValue = await toggleGameField(game_id, "untrustworthySniped");
+    return res.status(200).json({ 
+      message: "Untrustworthy snipe toggled", 
+      value: newValue 
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to toggle Untrustworthy snipe" });
+  }
+});
+
+// GET /api/avalon/game/:game_id/player_outcomes - get win/loss status for all players
+router.get("/game/:game_id/player_outcomes", async (req: Request, res: Response) => {
+  const { game_id } = req.params;
+  if (!game_id) {
+    return res.status(400).json({ error: "Missing game_id parameter" });
+  }
+  try {
+    const gameOutcome = await getGameOutcome(game_id);
+    const gamePlayers = await prisma.gamePlayer.findMany({
+      where: { gameId: game_id },
+      include: { player: true, role: true }
+    });
+    
+    const playerOutcomes = await Promise.all(
+      gamePlayers.map(async (gp) => ({
+        gamePlayerId: gp.id,
+        playerId: gp.playerId,
+        playerName: gp.player?.name ?? null,
+        roleName: gp.role?.roleName ?? null,
+        outcome: await getGameOutcomeForPlayer(game_id, gp.playerId.toString())
+      }))
+    );
+    
+    res.json({ 
+      gameOutcome,
+      playerOutcomes 
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch player outcomes" });
+  }
+});
+
+async function toggleGameField(gameId: string, fieldName: keyof Pick<Game, 'merlinSniped' | 'messengersSniped' | 'untrustworthySniped'>
+) {
+  const currentGame = await prisma.game.findUnique({
+    where: { id: gameId },
+    select: { [fieldName]: true },
+  });
+
+  if (!currentGame) throw new Error(`Game with id ${gameId} not found`);
+
+  await prisma.game.update({
+    where: { id: gameId },
+    data: { [fieldName]: !currentGame[fieldName] },
+  });
+
+  return !currentGame[fieldName];
+}
+
 async function getRoundOutcome(round: Round, requiredFails: number = 1) {
   const roundPlayers = await prisma.roundPlayer.findMany({
     where: { roundId: round.id }
@@ -765,6 +869,18 @@ async function getQuestOutcome(quest: Quest, questIndex: number, gamePlayerCount
 }
 
 async function getGameOutcome(gameId: string) {
+  // First check for relevant snipes
+  const game = await prisma.game.findUnique({
+    where: { id: gameId },
+    select: {
+      merlinSniped: true,
+      messengersSniped:true,
+    },
+  });
+  if (game?.merlinSniped || game?.messengersSniped) {
+    return -1;
+  }
+
   const quests = await prisma.quest.findMany({
     where: { gameId },
   });
@@ -778,6 +894,54 @@ async function getGameOutcome(gameId: string) {
   if (successCount >= 3) return 1;
   if (failCount >= 3) return -1;
   return 0;
+}
+
+async function getGameOutcomeForPlayer(gameId: string, playerId: string) {
+  // Get the overall game outcome
+  const goodWon = await getGameOutcome(gameId);
+  
+  // If game is still ongoing, no one has won yet
+  if (goodWon === 0) {
+    return 0;
+  }
+  
+  // Find the player's role in this game
+  const gamePlayer = await prisma.gamePlayer.findFirst({
+    where: {
+      gameId: gameId,
+      playerId: parseInt(playerId)
+    },
+    include: {
+      role: true
+    }
+  });
+  
+  // If player doesn't exist in this game or has no role, they neither win nor lose
+  if (!gamePlayer || !gamePlayer.role) {
+    return 0;
+  }
+  
+  const playerRole = gamePlayer.role;
+  
+  // Check if player should be treated as evil
+  let playerIsFunctionallyEvil = playerRole.evil;
+  
+  // Special case: UNTRUSTWORTHY is treated as evil if they were sniped
+  if (playerRole.roleName === RoleName.UNTRUSTWORTHY) {
+    const game = await prisma.game.findUnique({
+      where: { id: gameId },
+      select: { untrustworthySniped: true }
+    });
+    playerIsFunctionallyEvil = game?.untrustworthySniped ?? false;
+  }
+  
+  // Evil players (or sniped untrustworthy) win when evil wins
+  // Good players (or non-sniped untrustworthy) win when good wins
+  if (playerIsFunctionallyEvil) {
+    return goodWon === -1 ? 1 : -1;
+  } else {
+    return goodWon === 1 ? 1 : -1;
+  }
 }
 
 export default router;

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AvalonTimer from "./AvalonTimer";
 import { useParams } from "react-router-dom";
 
-import { BiCheck, BiX } from "react-icons/bi";
+import { BiCheck, BiSad, BiSolidCrown, BiX } from "react-icons/bi";
 
 import "./Components.css";
 import AvalonNav from "./AvalonNav";
@@ -35,6 +35,13 @@ interface Player {
   active: boolean;
 }
 
+interface RoleSlot {
+  key: string;
+  roleName: string;
+  label: string;
+  evil: boolean;
+}
+
 export default function AvalonGameArchived() {
   const { game_id } = useParams();
 
@@ -51,6 +58,119 @@ export default function AvalonGameArchived() {
   const [availableGameRoles, setAvailableGameRoles] = useState<string[]>([]);
   const [loyalServantCount, setLoyalServantCount] = useState<number>(0);
   const [minionCount, setMinionCount] = useState<number>(0);
+  const [playerOutcomes, setPlayerOutcomes] = useState<Record<number, number>>({});
+  
+  // Snipe status state
+  const [merlinSniped, setMerlinSniped] = useState<boolean>(false);
+  const [messengersSniped, setMessengersSniped] = useState<boolean>(false);
+  const [untrustworthySniped, setUntrustworthySniped] = useState<boolean>(false);
+
+  // Helper function to build ordered role slots
+  const buildRoleSlots = (
+    availableGameRoles: string[],
+    roleMap: Record<string, { evil: boolean; label?: string }>,
+    loyalServantCount: number,
+    minionCount: number
+  ): RoleSlot[] => {
+    const singleGood = availableGameRoles.filter(r => r !== 'LOYAL_SERVANT' && r !== 'MINION' && !roleMap[r]?.evil);
+    const singleEvil = availableGameRoles.filter(r => r !== 'LOYAL_SERVANT' && r !== 'MINION' && !!roleMap[r]?.evil);
+    const slots: RoleSlot[] = [];
+
+    // Add good single-instance roles
+    singleGood.forEach(r => slots.push({ 
+      key: r, 
+      roleName: r, 
+      label: roleMap[r]?.label ?? r, 
+      evil: !!roleMap[r]?.evil 
+    }));
+
+    // Add loyal servants
+    for (let i = 0; i < loyalServantCount; i++) {
+      slots.push({ 
+        key: `LOYAL_SERVANT_${i}`, 
+        roleName: 'LOYAL_SERVANT', 
+        label: roleMap['LOYAL_SERVANT']?.label ?? 'Loyal Servant', 
+        evil: !!roleMap['LOYAL_SERVANT']?.evil 
+      });
+    }
+
+    // Add evil single-instance roles
+    singleEvil.forEach(r => slots.push({ 
+      key: r, 
+      roleName: r, 
+      label: roleMap[r]?.label ?? r, 
+      evil: !!roleMap[r]?.evil 
+    }));
+
+    // Add minions
+    for (let i = 0; i < minionCount; i++) {
+      slots.push({ 
+        key: `MINION_${i}`, 
+        roleName: 'MINION', 
+        label: roleMap['MINION']?.label ?? 'Minion', 
+        evil: !!roleMap['MINION']?.evil 
+      });
+    }
+
+    return slots;
+  };
+
+  // Helper function to map assignments to slot selections
+  const mapAssignmentsToSlots = (
+    slots: RoleSlot[],
+    assignments: Array<{ gamePlayerId: number; playerId: number; playerName: string | null; roleName: string | null }>
+  ): Array<number | null> => {
+    const usedGamePlayerIds = new Set<number>();
+    return slots.map(s => {
+      const found = assignments.find(a => a.roleName === s.roleName && !usedGamePlayerIds.has(a.gamePlayerId));
+      if (found) {
+        usedGamePlayerIds.add(found.gamePlayerId);
+        return found.gamePlayerId;
+      }
+      return null;
+    });
+  };
+
+  // Helper function to handle slot assignment changes
+  const createSlotChangeHandler = (
+    idx: number,
+    slotSelected: Array<number | null>,
+    slot: RoleSlot,
+    assignRole: (gamePlayerId: number, roleName: string | null) => Promise<void>
+  ) => {
+    return async (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const val = e.target.value === '' ? null : Number(e.target.value);
+      const prev = slotSelected[idx];
+      
+      try {
+        if (val === null) {
+          // unassign whoever was in this slot
+          if (prev) await assignRole(prev, null);
+          slotSelected[idx] = null;
+          return;
+        }
+
+        // If this slot had a previous player, unassign them (unless it's the same as selected)
+        if (prev && prev !== val) {
+          await assignRole(prev, null);
+        }
+
+        // Now assign the selected player to this slot's role
+        await assignRole(val, slot.roleName);
+        slotSelected[idx] = val;
+      } catch (err) {
+        console.error('slot assignment error', err);
+      }
+    };
+  };
+
+  // Helper functions to determine which snipe options to show
+  const shouldShowMerlinSnipe = () => availableGameRoles.includes('MERLIN');
+  
+  const shouldShowMessengersSnipe = () => 
+    availableGameRoles.includes('SENIOR_MESSENGER') && availableGameRoles.includes('JUNIOR_MESSENGER');
+  
+  const shouldShowUntrustworthySnipe = () => availableGameRoles.includes('UNTRUSTWORTHY');
 
   // Fetch players once when component mounts
   useEffect(() => {
@@ -159,13 +279,104 @@ export default function AvalonGameArchived() {
     }
   };
 
+  // Fetch player outcomes from backend
+  const fetchPlayerOutcomes = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/player_outcomes`);
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      // Convert to a map of gamePlayerId -> outcome for easy lookup
+      const outcomeMap: Record<number, number> = {};
+      data.playerOutcomes.forEach((po: any) => {
+        outcomeMap[po.gamePlayerId] = po.outcome;
+      });
+      setPlayerOutcomes(outcomeMap);
+    } catch (err) {
+      console.error('Failed to fetch player outcomes', err);
+    }
+  };
+
+  // Fetch snipe status from backend
+  const fetchSnipeStatus = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      setMerlinSniped(data.game?.merlinSniped ?? false);
+      setMessengersSniped(data.game?.messengersSniped ?? false);
+      setUntrustworthySniped(data.game?.untrustworthySniped ?? false);
+    } catch (err) {
+      console.error('Failed to fetch snipe status', err);
+    }
+  };
+
+  // Toggle snipe functions
+  const toggleMerlinSnipe = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/toggle_merlin_snipe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMerlinSniped(data.value);
+        fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
+      }
+    } catch (err) {
+      console.error('Failed to toggle Merlin snipe', err);
+    }
+  };
+
+  const toggleMessengersSnipe = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/toggle_messengers_snipe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessengersSniped(data.value);
+        fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
+      }
+    } catch (err) {
+      console.error('Failed to toggle Messengers snipe', err);
+    }
+  };
+
+  const toggleUntrustworthySnipe = async () => {
+    if (!game_id) return;
+    try {
+      const res = await fetch(`/api/avalon/game/${game_id}/toggle_untrustworthy_snipe`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUntrustworthySniped(data.value);
+        fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
+      }
+    } catch (err) {
+      console.error('Failed to toggle Untrustworthy snipe', err);
+    }
+  };
+
   useEffect(() => {
     fetchRoleMetadata();
     fetchAssignments();
     fetchGameRoles();
+    fetchPlayerOutcomes();
+    fetchSnipeStatus();
     const intervalA = setInterval(() => {
       fetchAssignments();
       fetchGameRoles();
+      fetchPlayerOutcomes();
+      fetchSnipeStatus();
     }, 1000);
     return () => clearInterval(intervalA);
   }, [game_id]);
@@ -348,90 +559,116 @@ export default function AvalonGameArchived() {
           ))}
         </div>
 
-        <div className="card mb-3">
-          <div className="card-header d-flex justify-content-between align-items-center">
-            <h5 className="mb-0">Role Assignment</h5>
-            <span className="badge bg-secondary">{assignments.length} Players</span>
+        <div className="d-flex justify-content-center">
+          <div className="card mb-3 mx-3">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">Sniping Panel</h5>
+            </div>
+            <div className="card-body px-5">
+              {shouldShowUntrustworthySnipe() && (
+                <div className="mb-3 form-check">
+                  <input 
+                    type="checkbox" 
+                    className="form-check-input" 
+                    id="untrustworthy-sniped"
+                    checked={untrustworthySniped}
+                    onChange={toggleUntrustworthySnipe}
+                  />
+                  <label className="form-check-label" htmlFor="untrustworthy-sniped">
+                    Untrustworthy Servant Sniped
+                  </label>
+                </div>
+              )}
+              {shouldShowMerlinSnipe() && (
+                <div className="mb-3 form-check">
+                  <input 
+                    type="checkbox" 
+                    className="form-check-input" 
+                    id="merlin-sniped"
+                    checked={merlinSniped}
+                    onChange={toggleMerlinSnipe}
+                  />
+                  <label className="form-check-label" htmlFor="merlin-sniped">
+                    Merlin Sniped
+                  </label>
+                </div>
+              )}
+              {shouldShowMessengersSnipe() && (
+                <div className="mb-3 form-check">
+                  <input 
+                    type="checkbox" 
+                    className="form-check-input" 
+                    id="messengers-sniped"
+                    checked={messengersSniped}
+                    onChange={toggleMessengersSnipe}
+                  />
+                  <label className="form-check-label" htmlFor="messengers-sniped">
+                    Messengers Sniped
+                  </label>
+                </div>
+              )}
+              {!shouldShowMerlinSnipe() && !shouldShowMessengersSnipe() && !shouldShowUntrustworthySnipe() && (
+                <div className="text-muted">No snipeable roles in this game.</div>
+              )}
+            </div>
           </div>
-          <div className="card-body">
-            {assignments.length === 0 ? (
-              <div className="text-muted">No assignments yet.</div>
-            ) : (
-              (() => {
-                // Build ordered role slots: good single-instance, loyal servants, evil single-instance, minions
-                const singleGood = availableGameRoles.filter(r => r !== 'LOYAL_SERVANT' && r !== 'MINION' && !roleMap[r]?.evil);
-                const singleEvil = availableGameRoles.filter(r => r !== 'LOYAL_SERVANT' && r !== 'MINION' && !!roleMap[r]?.evil);
-                const slots: Array<{ key: string; roleName: string; label: string; evil: boolean } > = [];
-                singleGood.forEach(r => slots.push({ key: r, roleName: r, label: roleMap[r]?.label ?? r, evil: !!roleMap[r]?.evil }));
-                for (let i = 0; i < loyalServantCount; i++) {
-                  slots.push({ key: `LOYAL_SERVANT_${i}`, roleName: 'LOYAL_SERVANT', label: roleMap['LOYAL_SERVANT']?.label ?? 'Loyal Servant', evil: !!roleMap['LOYAL_SERVANT']?.evil });
-                }
-                singleEvil.forEach(r => slots.push({ key: r, roleName: r, label: roleMap[r]?.label ?? r, evil: !!roleMap[r]?.evil }));
-                for (let i = 0; i < minionCount; i++) {
-                  slots.push({ key: `MINION_${i}`, roleName: 'MINION', label: roleMap['MINION']?.label ?? 'Minion', evil: !!roleMap['MINION']?.evil });
-                }
+          <div className="card mb-3 mx-3">
+            <div className="card-header d-flex justify-content-between align-items-center">
+              <h5 className="mb-0">Role Assignment</h5>
+              <span className="badge bg-secondary">{assignments.length} Players</span>
+            </div>
+            <div className="card-body px-5">
+              {assignments.length === 0 ? (
+                <div className="text-muted">No assignments yet.</div>
+              ) : (
+                (() => {
+                  const slots = buildRoleSlots(availableGameRoles, roleMap, loyalServantCount, minionCount);
+                  const slotSelected = mapAssignmentsToSlots(slots, assignments);
 
-                // Map current assignments to slot selections (prefer matches in order)
-                const usedGamePlayerIds = new Set<number>();
-                const slotSelected: Array<number | null> = slots.map(s => {
-                  const found = assignments.find(a => a.roleName === s.roleName && !usedGamePlayerIds.has(a.gamePlayerId));
-                  if (found) {
-                    usedGamePlayerIds.add(found.gamePlayerId);
-                    return found.gamePlayerId;
-                  }
-                  return null;
-                });
-
-                return (
-                  <div className="d-flex flex-column">
-                    {slots.map((slot, idx) => (
-                      <div key={slot.key} className="d-flex align-items-center justify-content-center mb-2">
-                        <span className={`badge mx-e ${slot.evil ? 'bg-danger' : 'bg-success'}`} style={{ minWidth: '180px' }}>{slot.label}</span>
-                        <select
-                          className="form-select form-select-sm mx-2"
-                          value={slotSelected[idx] ?? ''}
-                          onChange={async (e) => {
-                            const val = e.target.value === '' ? null : Number(e.target.value);
-                            const prev = slotSelected[idx];
-                            try {
-                              if (val === null) {
-                                // unassign whoever was in this slot
-                                if (prev) await assignRole(prev, null);
-                                slotSelected[idx] = null;
-                                return;
-                              }
-
-                              // If this slot had a previous player, unassign them (unless it's the same as selected)
-                              if (prev && prev !== val) {
-                                await assignRole(prev, null);
-                              }
-
-                              // Now assign the selected player to this slot's role
-                              await assignRole(val, slot.roleName);
-                              slotSelected[idx] = val;
-                            } catch (err) {
-                              console.error('slot assignment error', err);
-                            }
-                          }}
-                        >
-                          <option value="">-- Unassigned --</option>
-                          {assignments
-                            .filter(a => a.roleName === null || a.gamePlayerId === slotSelected[idx])
-                            .map(a => (
-                              <option
-                                key={a.gamePlayerId}
-                                value={a.gamePlayerId}
-                              >
-                                {a.playerName ?? `Player ${a.playerId}`}
-                              </option>
-                            ))}
-                        </select>
-                      </div>
-                    ))}
-                  </div>
-                );
-              })()
-            )}
+                  return (
+                    <div className="d-flex flex-column">
+                      {slots.map((slot, idx) => (
+                        <div key={slot.key} className="d-flex align-items-center justify-content-center mb-2">
+                          <span className={`badge mx-e ${slot.evil ? 'bg-danger' : 'bg-success'}`} style={{ minWidth: '180px' }}>{slot.label}</span>
+                          <select
+                            className="form-select form-select-sm mx-2"
+                            style={{ minWidth: '200px' }}
+                            value={slotSelected[idx] ?? ''}
+                            onChange={createSlotChangeHandler(idx, slotSelected, slot, assignRole)}
+                          >
+                            <option value="">Unassigned</option>
+                            {assignments
+                              .filter(a => a.roleName === null || a.gamePlayerId === slotSelected[idx])
+                              .map(a => (
+                                <option
+                                  key={a.gamePlayerId}
+                                  value={a.gamePlayerId}
+                                >
+                                  {a.playerName ?? `Player ${a.playerId}`}
+                                </option>
+                              ))}
+                          </select>
+                            <span>
+                              {(() => {
+                                const gamePlayerId = slotSelected[idx];
+                                if (!gamePlayerId) return null;
+                                
+                                const outcome = playerOutcomes[gamePlayerId];
+                                if (outcome === 1) {
+                                  return <BiSolidCrown style={{ color: "gold", fontSize: "1.2rem" }} title="Winner!" />;
+                                } else if (outcome === -1) {
+                                  return <BiSad style={{ color: "gray", fontSize: "1.2rem" }} title="Loser" />;
+                                }
+                                return null; // Game ongoing or no role
+                              })()}
+                            </span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()
+              )}
+            </div>
           </div>
         </div>
 

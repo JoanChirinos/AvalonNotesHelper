@@ -58,6 +58,9 @@ model Game {
   players    GamePlayer[]
   quests     Quest[]
   roles      Role[]
+  merlinSniped Boolean @default(false)
+  messengersSniped Boolean @default(false)
+  untrustworthySniped Boolean @default(false)
 }
 
 model Player {
