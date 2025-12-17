@@ -172,6 +172,28 @@ export default function AvalonGameArchived() {
   
   const shouldShowUntrustworthySnipe = () => availableGameRoles.includes('UNTRUSTWORTHY');
 
+  // Function to show fullscreen SNIPED message
+  const showSnipedMessage = () => {
+    const overlay = document.getElementById("fullscreen-message");
+    if (!overlay) return;
+
+    // Reset transition so it can be retriggered
+    overlay.style.transition = "none";
+    overlay.style.opacity = "1";
+    overlay.style.pointerEvents = "auto";
+
+    // Force reflow
+    overlay.offsetHeight;
+
+    // Apply fade
+    overlay.style.transition = "opacity 2s ease";
+    overlay.style.opacity = "0";
+
+    setTimeout(() => {
+      overlay.style.pointerEvents = "none";
+    }, 2000);
+  };
+
   // Fetch players once when component mounts
   useEffect(() => {
     fetch(`/api/avalon/game/${game_id}/players`)
@@ -326,6 +348,11 @@ export default function AvalonGameArchived() {
         const data = await res.json();
         setMerlinSniped(data.value);
         fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
+        
+        // Show SNIPED message only when toggled ON
+        if (data.value) {
+          showSnipedMessage();
+        }
       }
     } catch (err) {
       console.error('Failed to toggle Merlin snipe', err);
@@ -343,6 +370,11 @@ export default function AvalonGameArchived() {
         const data = await res.json();
         setMessengersSniped(data.value);
         fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
+        
+        // Show SNIPED message only when toggled ON
+        if (data.value) {
+          showSnipedMessage();
+        }
       }
     } catch (err) {
       console.error('Failed to toggle Messengers snipe', err);
@@ -360,6 +392,11 @@ export default function AvalonGameArchived() {
         const data = await res.json();
         setUntrustworthySniped(data.value);
         fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
+        
+        // Show SNIPED message only when toggled ON
+        if (data.value) {
+          showSnipedMessage();
+        }
       }
     } catch (err) {
       console.error('Failed to toggle Untrustworthy snipe', err);
@@ -426,6 +463,29 @@ export default function AvalonGameArchived() {
 
   return (
     <>
+      {/* Fullscreen SNIPED message overlay */}
+      <div 
+        id="fullscreen-message"
+        className="d-flex justify-content-center text-center"
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: 'transparent',
+          color: '#dc3545', // Bootstrap danger red
+          fontSize: 'min(25vh, 25vw)', // 25% of height OR 80% of width, whichever is smaller
+          fontWeight: 'bold',
+          opacity: 0,
+          pointerEvents: 'none',
+          transition: 'opacity 2s ease',
+          zIndex: 9999,
+          textShadow: '2px 2px 4px rgba(0,0,0,0.5)', // Add shadow for better visibility
+          alignItems: 'flex-start',
+          paddingTop: '33.33vh', // Position at 1/3 down from top
+        }}
+      >
+        <span>SNIPED!</span>
+      </div>
+
       <AvalonTimer
         timerDefault={timerDefault}
         setTimerDefault={setTimerDefault}

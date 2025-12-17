@@ -20,7 +20,7 @@ export default function Home() {
               <ul>
                 <li>Added role selection in the game setup</li>
                 <li>Added post-game role assignment</li>
-                <li>Added post-game snipe'ing</li>
+                <li>Added post-game snipe'ing with fun pop-up</li>
               </ul>
             </div>
           </div>
