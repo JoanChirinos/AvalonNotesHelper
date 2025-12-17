@@ -59,7 +59,7 @@ export default function AvalonGameArchived() {
   const [loyalServantCount, setLoyalServantCount] = useState<number>(0);
   const [minionCount, setMinionCount] = useState<number>(0);
   const [playerOutcomes, setPlayerOutcomes] = useState<Record<number, number>>({});
-  
+
   // Snipe status state
   const [merlinSniped, setMerlinSniped] = useState<boolean>(false);
   const [messengersSniped, setMessengersSniped] = useState<boolean>(false);
@@ -77,38 +77,38 @@ export default function AvalonGameArchived() {
     const slots: RoleSlot[] = [];
 
     // Add good single-instance roles
-    singleGood.forEach(r => slots.push({ 
-      key: r, 
-      roleName: r, 
-      label: roleMap[r]?.label ?? r, 
-      evil: !!roleMap[r]?.evil 
+    singleGood.forEach(r => slots.push({
+      key: r,
+      roleName: r,
+      label: roleMap[r]?.label ?? r,
+      evil: !!roleMap[r]?.evil
     }));
 
     // Add loyal servants
     for (let i = 0; i < loyalServantCount; i++) {
-      slots.push({ 
-        key: `LOYAL_SERVANT_${i}`, 
-        roleName: 'LOYAL_SERVANT', 
-        label: roleMap['LOYAL_SERVANT']?.label ?? 'Loyal Servant', 
-        evil: !!roleMap['LOYAL_SERVANT']?.evil 
+      slots.push({
+        key: `LOYAL_SERVANT_${i}`,
+        roleName: 'LOYAL_SERVANT',
+        label: roleMap['LOYAL_SERVANT']?.label ?? 'Loyal Servant',
+        evil: !!roleMap['LOYAL_SERVANT']?.evil
       });
     }
 
     // Add evil single-instance roles
-    singleEvil.forEach(r => slots.push({ 
-      key: r, 
-      roleName: r, 
-      label: roleMap[r]?.label ?? r, 
-      evil: !!roleMap[r]?.evil 
+    singleEvil.forEach(r => slots.push({
+      key: r,
+      roleName: r,
+      label: roleMap[r]?.label ?? r,
+      evil: !!roleMap[r]?.evil
     }));
 
     // Add minions
     for (let i = 0; i < minionCount; i++) {
-      slots.push({ 
-        key: `MINION_${i}`, 
-        roleName: 'MINION', 
-        label: roleMap['MINION']?.label ?? 'Minion', 
-        evil: !!roleMap['MINION']?.evil 
+      slots.push({
+        key: `MINION_${i}`,
+        roleName: 'MINION',
+        label: roleMap['MINION']?.label ?? 'Minion',
+        evil: !!roleMap['MINION']?.evil
       });
     }
 
@@ -141,7 +141,7 @@ export default function AvalonGameArchived() {
     return async (e: React.ChangeEvent<HTMLSelectElement>) => {
       const val = e.target.value === '' ? null : Number(e.target.value);
       const prev = slotSelected[idx];
-      
+
       try {
         if (val === null) {
           // unassign whoever was in this slot
@@ -166,10 +166,10 @@ export default function AvalonGameArchived() {
 
   // Helper functions to determine which snipe options to show
   const shouldShowMerlinSnipe = () => availableGameRoles.includes('MERLIN');
-  
-  const shouldShowMessengersSnipe = () => 
+
+  const shouldShowMessengersSnipe = () =>
     availableGameRoles.includes('SENIOR_MESSENGER') && availableGameRoles.includes('JUNIOR_MESSENGER');
-  
+
   const shouldShowUntrustworthySnipe = () => availableGameRoles.includes('UNTRUSTWORTHY');
 
   // Function to show fullscreen SNIPED message
@@ -308,7 +308,7 @@ export default function AvalonGameArchived() {
       const res = await fetch(`/api/avalon/game/${game_id}/player_outcomes`);
       if (!res.ok) return;
       const data = await res.json();
-      
+
       // Convert to a map of gamePlayerId -> outcome for easy lookup
       const outcomeMap: Record<number, number> = {};
       data.playerOutcomes.forEach((po: any) => {
@@ -327,7 +327,7 @@ export default function AvalonGameArchived() {
       const res = await fetch(`/api/avalon/game/${game_id}`);
       if (!res.ok) return;
       const data = await res.json();
-      
+
       setMerlinSniped(data.game?.merlinSniped ?? false);
       setMessengersSniped(data.game?.messengersSniped ?? false);
       setUntrustworthySniped(data.game?.untrustworthySniped ?? false);
@@ -348,7 +348,7 @@ export default function AvalonGameArchived() {
         const data = await res.json();
         setMerlinSniped(data.value);
         fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
-        
+
         // Show SNIPED message only when toggled ON
         if (data.value) {
           showSnipedMessage();
@@ -370,7 +370,7 @@ export default function AvalonGameArchived() {
         const data = await res.json();
         setMessengersSniped(data.value);
         fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
-        
+
         // Show SNIPED message only when toggled ON
         if (data.value) {
           showSnipedMessage();
@@ -392,7 +392,7 @@ export default function AvalonGameArchived() {
         const data = await res.json();
         setUntrustworthySniped(data.value);
         fetchPlayerOutcomes(); // Refresh outcomes since snipes affect them
-        
+
         // Show SNIPED message only when toggled ON
         if (data.value) {
           showSnipedMessage();
@@ -464,7 +464,7 @@ export default function AvalonGameArchived() {
   return (
     <>
       {/* Fullscreen SNIPED message overlay */}
-      <div 
+      <div
         id="fullscreen-message"
         className="d-flex justify-content-center text-center"
         style={{
@@ -618,8 +618,7 @@ export default function AvalonGameArchived() {
             </div>
           ))}
         </div>
-
-        <div className="d-flex justify-content-center">
+        <div className="d-flex flex-column flex-lg-row justify-content-center">
           <div className="card mb-3 mx-3">
             <div className="card-header d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Sniping Panel</h5>
@@ -627,9 +626,9 @@ export default function AvalonGameArchived() {
             <div className="card-body px-5">
               {shouldShowUntrustworthySnipe() && (
                 <div className="mb-3 form-check">
-                  <input 
-                    type="checkbox" 
-                    className="form-check-input" 
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
                     id="untrustworthy-sniped"
                     checked={untrustworthySniped}
                     onChange={toggleUntrustworthySnipe}
@@ -641,9 +640,9 @@ export default function AvalonGameArchived() {
               )}
               {shouldShowMerlinSnipe() && (
                 <div className="mb-3 form-check">
-                  <input 
-                    type="checkbox" 
-                    className="form-check-input" 
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
                     id="merlin-sniped"
                     checked={merlinSniped}
                     onChange={toggleMerlinSnipe}
@@ -655,9 +654,9 @@ export default function AvalonGameArchived() {
               )}
               {shouldShowMessengersSnipe() && (
                 <div className="mb-3 form-check">
-                  <input 
-                    type="checkbox" 
-                    className="form-check-input" 
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
                     id="messengers-sniped"
                     checked={messengersSniped}
                     onChange={toggleMessengersSnipe}
@@ -684,44 +683,53 @@ export default function AvalonGameArchived() {
                 (() => {
                   const slots = buildRoleSlots(availableGameRoles, roleMap, loyalServantCount, minionCount);
                   const slotSelected = mapAssignmentsToSlots(slots, assignments);
-
                   return (
-                    <div className="d-flex flex-column">
+                    <div className="container-fluid">
                       {slots.map((slot, idx) => (
-                        <div key={slot.key} className="d-flex align-items-center justify-content-center mb-2">
-                          <span className={`badge mx-e ${slot.evil ? 'bg-danger' : 'bg-success'}`} style={{ minWidth: '180px' }}>{slot.label}</span>
-                          <select
-                            className="form-select form-select-sm mx-2"
-                            style={{ minWidth: '200px' }}
-                            value={slotSelected[idx] ?? ''}
-                            onChange={createSlotChangeHandler(idx, slotSelected, slot, assignRole)}
-                          >
-                            <option value="">Unassigned</option>
-                            {assignments
-                              .filter(a => a.roleName === null || a.gamePlayerId === slotSelected[idx])
-                              .map(a => (
-                                <option
-                                  key={a.gamePlayerId}
-                                  value={a.gamePlayerId}
-                                >
-                                  {a.playerName ?? `Player ${a.playerId}`}
-                                </option>
-                              ))}
-                          </select>
-                            <span>
-                              {(() => {
-                                const gamePlayerId = slotSelected[idx];
-                                if (!gamePlayerId) return null;
-                                
-                                const outcome = playerOutcomes[gamePlayerId];
-                                if (outcome === 1) {
-                                  return <BiSolidCrown style={{ color: "gold", fontSize: "1.2rem" }} title="Winner!" />;
-                                } else if (outcome === -1) {
-                                  return <BiSad style={{ color: "gray", fontSize: "1.2rem" }} title="Loser" />;
-                                }
-                                return null; // Game ongoing or no role
-                              })()}
+                        <div key={slot.key} className="row mb-2 align-items-center">
+                          {/* Role name - full width on small screens, 1/3 on larger screens */}
+                          <div className="col-12 col-md-6 mb-2 mb-md-0 text-center text-md-start">
+                            <span className={`badge w-100 ${slot.evil ? 'bg-danger' : 'bg-success'}`}>
+                              {slot.label}
                             </span>
+                          </div>
+                          {/* Select and crown/sad - full width on small, 2/3 on larger screens */}
+                          <div className="col-12 col-md-6">
+                            <div className="d-flex align-items-center justify-content-center justify-content-md-start">
+                              <select
+                                className="form-select form-select-sm me-2 flex-grow-1"
+                                style={{ maxWidth: '300px' }}
+                                value={slotSelected[idx] ?? ''}
+                                onChange={createSlotChangeHandler(idx, slotSelected, slot, assignRole)}
+                              >
+                                <option value="">Unassigned</option>
+                                {assignments
+                                  .filter(a => a.roleName === null || a.gamePlayerId === slotSelected[idx])
+                                  .map(a => (
+                                    <option
+                                      key={a.gamePlayerId}
+                                      value={a.gamePlayerId}
+                                    >
+                                      {a.playerName ?? `Player ${a.playerId}`}
+                                    </option>
+                                  ))}
+                              </select>
+                              <span className="ms-2">
+                                {(() => {
+                                  const gamePlayerId = slotSelected[idx];
+                                  if (!gamePlayerId) return null;
+
+                                  const outcome = playerOutcomes[gamePlayerId];
+                                  if (outcome === 1) {
+                                    return <BiSolidCrown style={{ color: "gold", fontSize: "1.2rem" }} title="Winner!" />;
+                                  } else if (outcome === -1) {
+                                    return <BiSad style={{ color: "gray", fontSize: "1.2rem" }} title="Loser" />;
+                                  }
+                                  return null; // Game ongoing or no role
+                                })()}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
